@@ -32,6 +32,8 @@ const AnswerFeedback: React.FC<AnswerFeedbackProps> = ({ status, correctAns }) =
   const [isExpanded, setIsExpanded] = useState(false);
   const [showAnimation, setShowAnimation] = useState(false);
 
+  console.log("correctAns", correctAns);
+
   const getMessage = () => {
     const messageArray = status ? FEEDBACK_MESSAGES.success : FEEDBACK_MESSAGES.error;
     return messageArray[Math.floor(Math.random() * messageArray.length)];

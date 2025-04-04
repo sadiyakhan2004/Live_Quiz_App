@@ -7,6 +7,7 @@ import FillInTheBlankComponent from "./FillInTheBlankQuiz";
 import DropDownQuiz from "./DropDownQuiz";
 import DND from "./DND";
 
+
 interface QuestionLayoutProps {
   Qn_id?: string;
   type?:
@@ -23,7 +24,7 @@ interface QuestionLayoutProps {
   };
   options?: string[]; // For radio and checkbox questions.
   correctAns?: string | string[]; // String for radio/short-answer, string[] for checkbox.
-  reviewMode?: boolean
+  reviewMode?: boolean;
   onAnswered?: () => void;
 }
 
@@ -34,9 +35,8 @@ const QuestionLayout: React.FC<QuestionLayoutProps> = ({
   correctAns,
   Qn_id,
   reviewMode,
-  onAnswered
+  onAnswered,
 }) => {
-
   const renderComponent = () => {
     switch (type) {
       case "radio":
@@ -94,18 +94,16 @@ const QuestionLayout: React.FC<QuestionLayoutProps> = ({
         );
       case "dnd":
         return (
-       
           <div>
-          <DND
-            question={question}
-            correctAns={correctAns as string}
-            Qn_id={Qn_id}
-            options={options || []}
-            reviewMode={reviewMode}
-            onAnswered={onAnswered}
-          />
+            <DND
+              question={question}
+              correctAns={correctAns as string}
+              Qn_id={Qn_id}
+              options={options || []}
+              reviewMode={reviewMode}
+              onAnswered={onAnswered}
+            />
           </div>
-         
         );
       default:
         return <div className="text-red-500">Invalid question type!</div>;

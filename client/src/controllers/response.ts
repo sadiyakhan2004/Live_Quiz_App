@@ -42,6 +42,7 @@ export interface QuestionData {
 
 // **Local responses storage**
 export let responses: ResponseData[] = [];
+export let localResponses :ResponseData[] = [];
 // export let questions: QuestionData[] = [];
 
 
@@ -74,6 +75,8 @@ export const isAnswerCorrect = (questionId: any): {
   correctAns: string[]; 
   userAns: string[]; 
 } => {
+
+ 
   const question = questions.find((q) => q.questionId === questionId);
   
   if (!question) {
@@ -84,7 +87,7 @@ export const isAnswerCorrect = (questionId: any): {
     };
   }
 
-  const userResponse = responses.find(
+  const userResponse = localResponses.find(
     (res) => res.questionId === questionId
   );
 
@@ -195,6 +198,7 @@ export const submitUserResponses = async (
   userEmail?: string,
   quizCode?: string,
   quizId?: string,
+  isCompleted?: boolean
 ): Promise<ApiResponse | null> => {
 
 
@@ -214,13 +218,15 @@ export const submitUserResponses = async (
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ userId,quizName,quizCode,quizId, responses ,correctAnswers,totalQuestions,score, username, userEmail}),
+      body: JSON.stringify({ userId,quizName,quizCode,quizId, responses ,correctAnswers,totalQuestions,score, username, userEmail, isCompleted}),
     });
 
     if (!res.ok) {
       throw new Error("Failed to submit responses");
     }
 
+    localResponses =  [...responses];
+    responses=[];
     return await res.json();
   } catch (error) {
     console.error("Error submitting responses:", error);

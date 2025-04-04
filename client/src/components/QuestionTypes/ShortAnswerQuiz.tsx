@@ -1,12 +1,11 @@
 "use client";
 import { useState, useEffect } from "react";
-import { useQuestions, QuestionData } from "@/context/QuestionProvider";
 import { useAppDispatch, useAppSelector } from "@/hooks/redux";
 import { addQuestion } from "@/store/features/questionSlice";
 import {
   updateResponse,
   isAnswerCorrect,
-  responses,
+  localResponses
 } from "@/controllers/response";
 import { v4 as uuidv4 } from "uuid";
 import Input from "../ui/Input";
@@ -17,6 +16,20 @@ import Textarea from "../ui/Textarea";
 interface Question {
   heading: string;
   paras: string[];
+}
+
+export interface QuestionData {
+  questionId: string;
+  currentQn: Question;
+  options?: string[];
+  correctAns: string | string[];
+  type:
+    | "checkbox"
+    | "radio"
+    | "short-answer"
+    | "fill-in-the-blank"
+    | "dropdown"
+    | "dnd";
 }
 
 interface QuizProps {
@@ -37,7 +50,6 @@ const ShortAnswerComponent: React.FC<QuizProps> = ({
   reviewMode,
   onAnswered,
 }) => {
-  const { questions } = useQuestions();
 
   const dispatch = useAppDispatch();
 
@@ -66,12 +78,12 @@ const ShortAnswerComponent: React.FC<QuizProps> = ({
     setUserAnswer("");
 
     if (isQuizMode || reviewMode) {
-      const res = responses.find((res: any) => res.questionId === Qn_id);
+      const res = localResponses.find((res: any) => res.questionId === Qn_id);
       if (res?.userAns && Qn_id) {
         setUserAnswer(res.userAns);
       }
     }
-  }, [Qn_id, isQuizMode, reviewMode, responses]);
+  }, [Qn_id, isQuizMode, reviewMode,localResponses]);
 
   // Check if at least one field (heading or content) has data
   const hasQuestionContent = () => {

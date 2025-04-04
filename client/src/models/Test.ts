@@ -3,11 +3,7 @@ import { v4 as uuidv4 } from "uuid";
 
 const testSchema = new Schema(
   {
-    // quizId: { 
-    //   type: String, 
-    //   default: uuidv4, // Assigns a unique quiz ID
-    //   unique: true 
-    // },
+    
     quizName: { 
       type: String, 
       required: true 

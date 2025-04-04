@@ -1,8 +1,6 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
-import { QuestionProvider } from "@/context/QuestionProvider";
 import { ReduxProvider } from "@/store/provider";
-
 
 import "./globals.css";
 import { SocketProvider } from "@/context/SocketProvider";
@@ -21,13 +19,11 @@ export default function RootLayout({
 }>) {
   return (
     <SocketProvider>
-    <html lang="en">
-      <body className={inter.className}>
-        <QuestionProvider>
+      <html lang="en">
+        <body className={inter.className}>
           <ReduxProvider>{children}</ReduxProvider>
-        </QuestionProvider>
-      </body>
-    </html>
+        </body>
+      </html>
     </SocketProvider>
   );
 }

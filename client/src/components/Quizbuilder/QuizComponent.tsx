@@ -1,7 +1,6 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import QuestionLayout from "../QuestionTypes/QuestionLayout";
-import { useQuestions } from "@/context/QuestionProvider";
 import AnswerFeedback from "@/components/helperComponents/AnswerFeedback";
 import QuizCompletionComponent from "@/components/helperComponents/QuizCompletion"
 
@@ -45,9 +44,10 @@ interface QuizPageProps {
   type?: "checkbox" | "radio" | "short-answer" | "fill-in-the-blank" | any;
   review_Mode?: boolean;
   quizName: string;
+  setReview_Mode?: (value: boolean) => void;
 }
 
-const QuizComponent: React.FC<QuizPageProps> = ({ type, isQuiz, questions, review_Mode, quizName }) => {
+const QuizComponent: React.FC<QuizPageProps> = ({ type, isQuiz, questions, review_Mode, quizName,setReview_Mode }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [ reviewMode, setReviewMode ] = useState(review_Mode);
   const [submitted, setSubmitted] = useState(false); // State to handle submission
@@ -128,7 +128,7 @@ const QuizComponent: React.FC<QuizPageProps> = ({ type, isQuiz, questions, revie
       setResponses([]); // Default to empty array
     }
 
-    setReviewMode(true); // Set review mode after submitting all answers
+    setReviewMode?.(true); // Set review mode after submitting all answers
     setSubmitted(true); // Mark as submitted
     setShowModal(true); // Show the modal when quiz is submitted
   };

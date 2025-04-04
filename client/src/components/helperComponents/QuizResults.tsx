@@ -1,7 +1,40 @@
-import React, { useState, useEffect } from 'react';
-import { fetchRecentQuizResponses } from '@/controllers/response';
-import { ApiResponse } from '@/controllers/response';
-import { Medal, Award, Trophy, ChevronDown, ChevronUp, Users, Clock, CheckCircle, AlertTriangle, Calendar, Hash } from 'lucide-react';
+import React, { useState, useEffect } from "react";
+import { fetchRecentQuizResponses } from "@/controllers/response";
+import { ApiResponse } from "@/controllers/response";
+import {
+  Medal,
+  Award,
+  Trophy,
+  ChevronDown,
+  ChevronUp,
+  Users,
+  Clock,
+  CheckCircle,
+  AlertTriangle,
+  Calendar,
+  Hash,
+  Check,
+  X,
+} from "lucide-react";
+
+export interface QuizResult {
+  userId: string;
+  responses: {
+    questionId: string;
+    userAns: string | string[];
+    isCorrect?: boolean;
+  };
+  quizName: string;
+  quizCode?: string;
+  quizId?: string;
+  correctAnswers: number;
+  totalQuestions: number;
+  score: number;
+  createdAt?: string;
+  completedAt?: string;
+  username?: string;
+  userEmail?: string;
+}
 
 interface QuizResultsProps {
   quizName: string;
@@ -9,61 +42,73 @@ interface QuizResultsProps {
   quizId?: string;
 }
 
-const QuizResults: React.FC<QuizResultsProps> = ({ quizName, quizCode, quizId }) => {
-  const [allResults, setAllResults] = useState<ApiResponse[] | null>(null);
-  const [results, setResults] = useState<ApiResponse[] | null>(null);
+const QuizResults: React.FC<QuizResultsProps> = ({
+  quizName,
+  quizCode,
+  quizId,
+}) => {
+  const [allResults, setAllResults] = useState<QuizResult[] | null>(null);
+  const [results, setResults] = useState<QuizResult[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [sortField, setSortField] = useState<string>('score');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+  const [sortField, setSortField] = useState<string>("score");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
   const [availableDates, setAvailableDates] = useState<string[]>([]);
-  const [selectedDate, setSelectedDate] = useState<string>('');
+  const [selectedDate, setSelectedDate] = useState<string>("");
   const [availableQuizCodes, setAvailableQuizCodes] = useState<string[]>([]);
-  const [selectedQuizCode, setSelectedQuizCode] = useState<string>('');
+  const [selectedQuizCode, setSelectedQuizCode] = useState<string>("");
+  const [expandedQuestion, setExpandedQuestion] = useState<number | null>(null);
 
   useEffect(() => {
     const getResults = async () => {
       try {
         setLoading(true);
         const data = await fetchRecentQuizResponses(quizName, quizCode, quizId);
+        console.log(data);
         setAllResults(data);
-        
+
         // If there's a specific quizCode passed as prop, just use all data
         if (quizCode) {
-          setResults(data);
+          if (data) {
+            setResults(data);
+          }
         } else {
           // Extract unique dates from the data
           const uniqueDates = data ? extractUniqueDates(data) : [];
           setAvailableDates(uniqueDates);
-          
+
           // Select the most recent date by default
           if (uniqueDates.length > 0) {
             const mostRecentDate = uniqueDates[0];
             setSelectedDate(mostRecentDate);
-            
+
             // Filter results for the most recent date
             if (data) {
               const filteredByDate = filterResultsByDate(data, mostRecentDate);
               setResults(filteredByDate);
-              
+
               // Get available quiz codes for this date
               const quizCodesForDate = extractUniqueQuizCodes(filteredByDate);
               setAvailableQuizCodes(quizCodesForDate);
-              
+
               // Select the first quiz code by default if available
               if (quizCodesForDate.length > 0) {
                 setSelectedQuizCode(quizCodesForDate[0]);
-                setResults(filterResultsByQuizCode(filteredByDate, quizCodesForDate[0]));
+                setResults(
+                  filterResultsByQuizCode(filteredByDate, quizCodesForDate[0])
+                );
               }
             }
           } else {
-            setResults(data);
+            if (data) {
+              setResults(data);
+            }
           }
         }
-        
+
         setError(null);
       } catch (err) {
-        setError('Failed to load quiz results');
+        setError("Failed to load quiz results");
         console.error(err);
       } finally {
         setLoading(false);
@@ -73,55 +118,61 @@ const QuizResults: React.FC<QuizResultsProps> = ({ quizName, quizCode, quizId })
     getResults();
   }, [quizName, quizCode, quizId]);
 
-  const extractUniqueDates = (data: ApiResponse[]): string[] => {
+  const extractUniqueDates = (data: QuizResult[]): string[] => {
     if (!data || data.length === 0) return [];
-    
+
     // Extract unique dates from completedAt timestamps
     const uniqueDatesMap = new Map();
-    
-    data.forEach(item => {
+
+    data.forEach((item) => {
       if (item.completedAt) {
-        const date = new Date(item.completedAt).toISOString().split('T')[0];
+        const date = new Date(item.completedAt).toISOString().split("T")[0];
         uniqueDatesMap.set(date, true);
       }
     });
-    
+
     // Convert map keys to array and sort by date (most recent first)
-    return Array.from(uniqueDatesMap.keys()).sort((a, b) => 
-      new Date(b).getTime() - new Date(a).getTime()
+    return Array.from(uniqueDatesMap.keys()).sort(
+      (a, b) => new Date(b).getTime() - new Date(a).getTime()
     );
   };
 
-  const extractUniqueQuizCodes = (data: ApiResponse[]): string[] => {
+  const extractUniqueQuizCodes = (data: QuizResult[]): string[] => {
     if (!data || data.length === 0) return [];
-    
+
     // Extract unique quiz codes
     const uniqueQuizCodesMap = new Map();
-    
-    data.forEach(item => {
+
+    data.forEach((item) => {
       if (item.quizCode) {
         uniqueQuizCodesMap.set(item.quizCode, true);
       }
     });
-    
+
     // Convert map keys to array and sort alphabetically
     return Array.from(uniqueQuizCodesMap.keys()).sort();
   };
 
-  const filterResultsByDate = (data: ApiResponse[], date: string): ApiResponse[] => {
+  const filterResultsByDate = (
+    data: QuizResult[],
+    date: string
+  ): QuizResult[] => {
     if (!data || data.length === 0) return [];
-    
-    return data.filter(item => {
+
+    return data.filter((item) => {
       if (!item.completedAt) return false;
-      const itemDate = new Date(item.completedAt).toISOString().split('T')[0];
+      const itemDate = new Date(item.completedAt).toISOString().split("T")[0];
       return itemDate === date;
     });
   };
 
-  const filterResultsByQuizCode = (data: ApiResponse[], code: string): ApiResponse[] => {
+  const filterResultsByQuizCode = (
+    data: QuizResult[],
+    code: string
+  ): QuizResult[] => {
     if (!data || data.length === 0) return [];
-    
-    return data.filter(item => {
+
+    return data.filter((item) => {
       return item.quizCode === code;
     });
   };
@@ -129,29 +180,33 @@ const QuizResults: React.FC<QuizResultsProps> = ({ quizName, quizCode, quizId })
   const handleDateChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
     const newDate = event.target.value;
     setSelectedDate(newDate);
-    
+
     if (allResults) {
       const filteredByDate = filterResultsByDate(allResults, newDate);
-      
+
       // Get available quiz codes for this date
       const quizCodesForDate = extractUniqueQuizCodes(filteredByDate);
       setAvailableQuizCodes(quizCodesForDate);
-      
+
       // Select the first quiz code by default if available
       if (quizCodesForDate.length > 0) {
         setSelectedQuizCode(quizCodesForDate[0]);
-        setResults(filterResultsByQuizCode(filteredByDate, quizCodesForDate[0]));
+        setResults(
+          filterResultsByQuizCode(filteredByDate, quizCodesForDate[0])
+        );
       } else {
-        setSelectedQuizCode('');
+        setSelectedQuizCode("");
         setResults(filteredByDate);
       }
     }
   };
 
-  const handleQuizCodeChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+  const handleQuizCodeChange = (
+    event: React.ChangeEvent<HTMLSelectElement>
+  ) => {
     const newQuizCode = event.target.value;
     setSelectedQuizCode(newQuizCode);
-    
+
     if (allResults && selectedDate) {
       const filteredByDate = filterResultsByDate(allResults, selectedDate);
       setResults(filterResultsByQuizCode(filteredByDate, newQuizCode));
@@ -160,61 +215,96 @@ const QuizResults: React.FC<QuizResultsProps> = ({ quizName, quizCode, quizId })
 
   const handleSort = (field: string) => {
     if (sortField === field) {
-      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
     } else {
       setSortField(field);
-      setSortDirection('desc');
+      setSortDirection("desc");
     }
   };
 
   const sortedResults = () => {
     if (!results) return [];
-    
+
     return [...results].sort((a, b) => {
       let valA, valB;
-      
+
       switch (sortField) {
-        case 'name':
-          valA = a.username || 'Anonymous';
-          valB = b.username || 'Anonymous';
-          return sortDirection === 'asc' 
-            ? valA.localeCompare(valB) 
+        case "name":
+          valA = a.username || "Anonymous";
+          valB = b.username || "Anonymous";
+          return sortDirection === "asc"
+            ? valA.localeCompare(valB)
             : valB.localeCompare(valA);
-        case 'email':
-          valA = a.userEmail || 'N/A';
-          valB = b.userEmail || 'N/A';
-          return sortDirection === 'asc' 
-            ? valA.localeCompare(valB) 
+        case "email":
+          valA = a.userEmail || "N/A";
+          valB = b.userEmail || "N/A";
+          return sortDirection === "asc"
+            ? valA.localeCompare(valB)
             : valB.localeCompare(valA);
-        case 'completionTime':
+        case "completionTime":
           valA = a.completedAt ? new Date(a.completedAt).getTime() : 0;
           valB = b.completedAt ? new Date(b.completedAt).getTime() : 0;
-          return sortDirection === 'asc' ? valA - valB : valB - valA;
-        case 'correctAnswers':
-          return sortDirection === 'asc' 
-            ? a.correctAnswers - b.correctAnswers 
+          return sortDirection === "asc" ? valA - valB : valB - valA;
+        case "correctAnswers":
+          return sortDirection === "asc"
+            ? a.correctAnswers - b.correctAnswers
             : b.correctAnswers - a.correctAnswers;
         default: // score is default
-          return sortDirection === 'asc' ? a.score - b.score : b.score - a.score;
+          return sortDirection === "asc"
+            ? a.score - b.score
+            : b.score - a.score;
       }
     });
   };
 
   const getTopThreeParticipants = () => {
     if (!results || results.length === 0) return [];
-    
-    // Always sort by score in descending order for top three
-    return [...results]
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 3);
+
+    // Always sort by score in descending order
+    const sorted = [...results].sort((a, b) => b.score - a.score);
+
+    // Get all participants with the top 3 scores
+    const topScores = Array.from(new Set(sorted.map((r) => r.score))).slice(
+      0,
+      3
+    );
+
+    return sorted.filter((r) => topScores.includes(r.score));
   };
 
-  const getRankBadge = (index: number) => {
-    if (index === 0) {
+  const getParticipantRank = (participant: QuizResult) => {
+    if (!results) return 0;
+
+    // Sort all results by score in descending order
+    const sortedByScore = [...results].sort((a, b) => b.score - a.score);
+
+    // Group participants by score
+    const scoreGroups: Record<number, QuizResult[]> = {};
+    sortedByScore.forEach((result) => {
+      if (!scoreGroups[result.score]) {
+        scoreGroups[result.score] = [];
+      }
+      scoreGroups[result.score].push(result);
+    });
+
+    // Get unique scores in descending order
+    const uniqueScores = Object.keys(scoreGroups)
+      .map(Number)
+      .sort((a, b) => b - a);
+
+    // Find the index of the participant's score
+    const scoreIndex = uniqueScores.indexOf(participant.score);
+
+    // Return the rank (scoreIndex + 1)
+    return scoreIndex + 1;
+  };
+
+  const getRankBadge = (rank: number) => {
+    if (rank === 1) {
       return <Trophy className="text-yellow-500" size={24} />;
-    } else if (index === 1) {
+    } else if (rank === 2) {
       return <Medal className="text-gray-400" size={24} />;
-    } else if (index === 2) {
+    } else if (rank === 3) {
       return <Award className="text-amber-600" size={24} />;
     }
     return null;
@@ -222,10 +312,48 @@ const QuizResults: React.FC<QuizResultsProps> = ({ quizName, quizCode, quizId })
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString(undefined, {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
+      year: "numeric",
+      month: "long",
+      day: "numeric",
     });
+  };
+
+  const toggleQuestion = (questionIndex: number) => {
+    if (expandedQuestion === questionIndex) {
+      setExpandedQuestion(null);
+    } else {
+      setExpandedQuestion(questionIndex);
+    }
+  };
+
+  // Success rate calculation
+  const getQuestionSuccessRate = (questionIndex: number) => {
+    if (!results.length)
+      return { correct: 0, total: 0, rate: 0, participantStatuses: [] };
+
+    let correctCount = 0;
+    const participantStatuses = results.map((participant: any) => {
+      const response = participant.responses?.[questionIndex];
+      const isCorrect = response?.isCorrect || false;
+      if (isCorrect) correctCount++;
+
+      return {
+        name: participant.username || "Anonymous",
+        email: participant.userEmail || "N/A",
+        isCorrect,
+      };
+    });
+
+    const totalParticipants = results.length;
+    const rate =
+      totalParticipants > 0 ? (correctCount / totalParticipants) * 100 : 0;
+
+    return {
+      correct: correctCount,
+      total: totalParticipants,
+      rate,
+      participantStatuses,
+    };
   };
 
   if (loading) {
@@ -257,8 +385,12 @@ const QuizResults: React.FC<QuizResultsProps> = ({ quizName, quizCode, quizId })
         <div className="flex items-center">
           <AlertTriangle className="text-yellow-500 mr-4" size={24} />
           <div>
-            <h3 className="text-lg font-semibold text-yellow-700">No Results</h3>
-            <p className="text-yellow-600">No participants have completed this quiz yet.</p>
+            <h3 className="text-lg font-semibold text-yellow-700">
+              No Results
+            </h3>
+            <p className="text-yellow-600">
+              No participants have completed this quiz yet.
+            </p>
           </div>
         </div>
       </div>
@@ -267,17 +399,27 @@ const QuizResults: React.FC<QuizResultsProps> = ({ quizName, quizCode, quizId })
 
   const topThree = getTopThreeParticipants();
   const sorted = sortedResults();
-  const averageScore = (results.reduce((acc, result) => acc + result.score, 0) / results.length).toFixed(1);
-  const highestScore = Math.max(...results.map(result => result.score)).toFixed(1);
-  const lowestScore = Math.min(...results.map(result => result.score)).toFixed(1);
+  const averageScore = (
+    results.reduce((acc, result) => acc + result.score, 0) / results.length
+  ).toFixed(1);
+  const highestScore = Math.max(
+    ...results.map((result) => result.score)
+  ).toFixed(1);
+  const lowestScore = Math.min(
+    ...results.map((result) => result.score)
+  ).toFixed(1);
 
   return (
     <div className="bg-white shadow-lg rounded-xl p-6 border border-gray-100">
       <div className="mb-8">
-        <h2 className="text-3xl font-bold text-gray-800 mb-2">Quiz Results: {quizName}</h2>
+        <h2 className="text-3xl font-bold text-gray-800 mb-2">
+          Quiz Results: {quizName}
+        </h2>
         {quizCode ? (
           <div className="flex items-center text-gray-500 mb-1">
-            <span className="bg-gray-100 px-3 py-1 rounded-full text-sm font-medium">Code: {quizCode}</span>
+            <span className="bg-gray-100 px-3 py-1 rounded-full text-sm font-medium">
+              Code: {quizCode}
+            </span>
           </div>
         ) : (
           <div>
@@ -301,7 +443,7 @@ const QuizResults: React.FC<QuizResultsProps> = ({ quizName, quizCode, quizId })
                   </div>
                 </div>
               </div>
-              
+
               {availableQuizCodes.length > 0 && (
                 <div className="flex items-center space-x-2">
                   <Hash size={20} className="text-indigo-500" />
@@ -344,35 +486,49 @@ const QuizResults: React.FC<QuizResultsProps> = ({ quizName, quizCode, quizId })
             <Trophy size={20} className="mr-2 text-yellow-500" />
             Top Performers
           </h3>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {topThree.map((participant, index) => (
-              <div 
-                key={index}
-                className={`p-4 rounded-lg shadow-md border-t-4 ${
-                  index === 0 ? 'border-yellow-400 bg-yellow-50' : 
-                  index === 1 ? 'border-gray-300 bg-gray-50' : 
-                  'border-amber-500 bg-amber-50'
-                }`}
-              >
-                <div className="flex justify-between items-center mb-2">
-                  <span className="font-bold text-lg">
-                    {index + 1}{index === 0 ? 'st' : index === 1 ? 'nd' : 'rd'} Place
-                  </span>
-                  {getRankBadge(index)}
+            {topThree.map((participant, index) => {
+              const rank = getParticipantRank(participant);
+              return (
+                <div
+                  key={index}
+                  className={`p-4 rounded-lg shadow-md border-t-4 ${
+                    rank === 1
+                      ? "border-yellow-400 bg-yellow-50"
+                      : rank === 2
+                      ? "border-gray-300 bg-gray-50"
+                      : "border-amber-500 bg-amber-50"
+                  }`}
+                >
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="font-bold text-lg">
+                      {rank}
+                      {rank === 1 ? "st" : rank === 2 ? "nd" : "rd"} Place
+                    </span>
+                    {getRankBadge(rank)}
+                  </div>
+                  <div className="text-lg font-medium">
+                    {participant.username || "Anonymous"}
+                  </div>
+                  <div className="text-gray-500 text-sm mb-2">
+                    {participant.userEmail || "N/A"}
+                  </div>
+                  <div className="flex items-center justify-between mt-3">
+                    <div className="text-sm text-gray-600">Score</div>
+                    <div className="text-xl font-bold text-indigo-600">
+                      {participant.score.toFixed(1)}%
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between mt-1">
+                    <div className="text-sm text-gray-600">Correct</div>
+                    <div className="text-indigo-600">
+                      {participant.correctAnswers}/{participant.totalQuestions}
+                    </div>
+                  </div>
                 </div>
-                <div className="text-lg font-medium">{participant.username || 'Anonymous'}</div>
-                <div className="text-gray-500 text-sm mb-2">{participant.userEmail || 'N/A'}</div>
-                <div className="flex items-center justify-between mt-3">
-                  <div className="text-sm text-gray-600">Score</div>
-                  <div className="text-xl font-bold text-indigo-600">{participant.score.toFixed(1)}%</div>
-                </div>
-                <div className="flex items-center justify-between mt-1">
-                  <div className="text-sm text-gray-600">Correct</div>
-                  <div className="text-indigo-600">{participant.correctAnswers}/{participant.totalQuestions}</div>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
@@ -384,31 +540,43 @@ const QuizResults: React.FC<QuizResultsProps> = ({ quizName, quizCode, quizId })
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-5 rounded-lg shadow-sm border border-blue-100">
-            <div className="text-blue-500 mb-1 text-sm font-medium">Average Score</div>
-            <div className="text-3xl font-bold text-blue-700">{averageScore}%</div>
+            <div className="text-blue-500 mb-1 text-sm font-medium">
+              Average Score
+            </div>
+            <div className="text-3xl font-bold text-blue-700">
+              {averageScore}%
+            </div>
             <div className="mt-2 h-2 bg-blue-100 rounded-full overflow-hidden">
-              <div 
-                className="bg-blue-500 h-full rounded-full" 
+              <div
+                className="bg-blue-500 h-full rounded-full"
                 style={{ width: `${Math.min(100, parseFloat(averageScore))}%` }}
               ></div>
             </div>
           </div>
           <div className="bg-gradient-to-br from-green-50 to-emerald-50 p-5 rounded-lg shadow-sm border border-green-100">
-            <div className="text-green-500 mb-1 text-sm font-medium">Highest Score</div>
-            <div className="text-3xl font-bold text-green-700">{highestScore}%</div>
+            <div className="text-green-500 mb-1 text-sm font-medium">
+              Highest Score
+            </div>
+            <div className="text-3xl font-bold text-green-700">
+              {highestScore}%
+            </div>
             <div className="mt-2 h-2 bg-green-100 rounded-full overflow-hidden">
-              <div 
-                className="bg-green-500 h-full rounded-full" 
+              <div
+                className="bg-green-500 h-full rounded-full"
                 style={{ width: `${Math.min(100, parseFloat(highestScore))}%` }}
               ></div>
             </div>
           </div>
           <div className="bg-gradient-to-br from-purple-50 to-violet-50 p-5 rounded-lg shadow-sm border border-purple-100">
-            <div className="text-purple-500 mb-1 text-sm font-medium">Lowest Score</div>
-            <div className="text-3xl font-bold text-purple-700">{lowestScore}%</div>
+            <div className="text-purple-500 mb-1 text-sm font-medium">
+              Lowest Score
+            </div>
+            <div className="text-3xl font-bold text-purple-700">
+              {lowestScore}%
+            </div>
             <div className="mt-2 h-2 bg-purple-100 rounded-full overflow-hidden">
-              <div 
-                className="bg-purple-500 h-full rounded-full" 
+              <div
+                className="bg-purple-500 h-full rounded-full"
                 style={{ width: `${Math.min(100, parseFloat(lowestScore))}%` }}
               ></div>
             </div>
@@ -431,90 +599,138 @@ const QuizResults: React.FC<QuizResultsProps> = ({ quizName, quizCode, quizId })
           <table className="min-w-full bg-white rounded-lg overflow-hidden">
             <thead className="bg-gradient-to-r from-indigo-500 to-purple-500 text-white">
               <tr>
-                <th className="py-3 px-4 text-left cursor-pointer" onClick={() => handleSort('name')}>
+                <th className="py-3 px-4 text-center">Rank</th>
+                <th
+                  className="py-3 px-4 text-left cursor-pointer"
+                  onClick={() => handleSort("name")}
+                >
                   <div className="flex items-center">
                     <span>Name</span>
-                    {sortField === 'name' && (
-                      sortDirection === 'asc' ? <ChevronUp size={16} className="ml-1" /> : <ChevronDown size={16} className="ml-1" />
-                    )}
+                    {sortField === "name" &&
+                      (sortDirection === "asc" ? (
+                        <ChevronUp size={16} className="ml-1" />
+                      ) : (
+                        <ChevronDown size={16} className="ml-1" />
+                      ))}
                   </div>
                 </th>
-                <th className="py-3 px-4 text-left cursor-pointer" onClick={() => handleSort('email')}>
+                <th
+                  className="py-3 px-4 text-left cursor-pointer"
+                  onClick={() => handleSort("email")}
+                >
                   <div className="flex items-center">
                     <span>Email</span>
-                    {sortField === 'email' && (
-                      sortDirection === 'asc' ? <ChevronUp size={16} className="ml-1" /> : <ChevronDown size={16} className="ml-1" />
-                    )}
+                    {sortField === "email" &&
+                      (sortDirection === "asc" ? (
+                        <ChevronUp size={16} className="ml-1" />
+                      ) : (
+                        <ChevronDown size={16} className="ml-1" />
+                      ))}
                   </div>
                 </th>
-                <th className="py-3 px-4 text-center cursor-pointer" onClick={() => handleSort('score')}>
+                <th
+                  className="py-3 px-4 text-center cursor-pointer"
+                  onClick={() => handleSort("score")}
+                >
                   <div className="flex items-center justify-center">
                     <span>Score</span>
-                    {sortField === 'score' && (
-                      sortDirection === 'asc' ? <ChevronUp size={16} className="ml-1" /> : <ChevronDown size={16} className="ml-1" />
-                    )}
+                    {sortField === "score" &&
+                      (sortDirection === "asc" ? (
+                        <ChevronUp size={16} className="ml-1" />
+                      ) : (
+                        <ChevronDown size={16} className="ml-1" />
+                      ))}
                   </div>
                 </th>
-                <th className="py-3 px-4 text-center cursor-pointer" onClick={() => handleSort('correctAnswers')}>
+                <th
+                  className="py-3 px-4 text-center cursor-pointer"
+                  onClick={() => handleSort("correctAnswers")}
+                >
                   <div className="flex items-center justify-center">
                     <span>Correct</span>
-                    {sortField === 'correctAnswers' && (
-                      sortDirection === 'asc' ? <ChevronUp size={16} className="ml-1" /> : <ChevronDown size={16} className="ml-1" />
-                    )}
+                    {sortField === "correctAnswers" &&
+                      (sortDirection === "asc" ? (
+                        <ChevronUp size={16} className="ml-1" />
+                      ) : (
+                        <ChevronDown size={16} className="ml-1" />
+                      ))}
                   </div>
                 </th>
                 <th className="py-3 px-4 text-center">Total</th>
-                <th className="py-3 px-4 text-center cursor-pointer" onClick={() => handleSort('completionTime')}>
+                <th
+                  className="py-3 px-4 text-center cursor-pointer"
+                  onClick={() => handleSort("completionTime")}
+                >
                   <div className="flex items-center justify-center">
                     <span>Completion Time</span>
-                    {sortField === 'completionTime' && (
-                      sortDirection === 'asc' ? <ChevronUp size={16} className="ml-1" /> : <ChevronDown size={16} className="ml-1" />
-                    )}
+                    {sortField === "completionTime" &&
+                      (sortDirection === "asc" ? (
+                        <ChevronUp size={16} className="ml-1" />
+                      ) : (
+                        <ChevronDown size={16} className="ml-1" />
+                      ))}
                   </div>
                 </th>
-                <th className="py-3 px-4 text-center">Rank</th>
               </tr>
             </thead>
             <tbody>
               {sorted.map((result, index) => {
-                const rankIndex = topThree.findIndex(
-                  top => top.username === result.username && top.userEmail === result.userEmail
-                );
-                
+                const rank = getParticipantRank(result);
+
                 return (
-                  <tr 
-                    key={index} 
+                  <tr
+                    key={index}
                     className={`
-                      ${index % 2 === 0 ? 'bg-gray-50' : 'bg-white'}
-                      ${rankIndex === 0 ? 'bg-yellow-50' : ''}
-                      ${rankIndex === 1 ? 'bg-gray-100' : ''}
-                      ${rankIndex === 2 ? 'bg-amber-50' : ''}
+                      ${index % 2 === 0 ? "bg-gray-50" : "bg-white"}
+                      ${rank === 1 ? "bg-yellow-50" : ""}
+                      ${rank === 2 ? "bg-gray-100" : ""}
+                      ${rank === 3 ? "bg-amber-50" : ""}
                       hover:bg-indigo-50 transition-colors duration-150
                     `}
                   >
-                    <td className="py-3 px-4 border-b border-gray-100">{result.username || 'Anonymous'}</td>
-                    <td className="py-3 px-4 border-b border-gray-100">{result.userEmail || 'N/A'}</td>
                     <td className="py-3 px-4 border-b border-gray-100 text-center">
-                      <span className={`
+                      <span className="flex justify-center items-center">
+                        {rank <= 3 ? (
+                          getRankBadge(rank)
+                        ) : (
+                          <span className="font-semibold">{rank}</span>
+                        )}
+                      </span>
+                    </td>
+                    <td className="py-3 px-4 border-b border-gray-100">
+                      {result.username || "Anonymous"}
+                    </td>
+                    <td className="py-3 px-4 border-b border-gray-100">
+                      {result.userEmail || "N/A"}
+                    </td>
+                    <td className="py-3 px-4 border-b border-gray-100 text-center">
+                      <span
+                        className={`
                         px-2 py-1 rounded-full text-white font-medium text-sm
-                        ${result.score >= 90 ? 'bg-green-500' : 
-                          result.score >= 70 ? 'bg-blue-500' : 
-                          result.score >= 50 ? 'bg-yellow-500' : 'bg-red-500'}
-                      `}>
+                        ${
+                          result.score >= 90
+                            ? "bg-green-500"
+                            : result.score >= 70
+                            ? "bg-blue-500"
+                            : result.score >= 50
+                            ? "bg-yellow-500"
+                            : "bg-red-500"
+                        }
+                      `}
+                      >
                         {result.score.toFixed(1)}%
                       </span>
                     </td>
-                    <td className="py-3 px-4 border-b border-gray-100 text-center font-medium">{result.correctAnswers}</td>
-                    <td className="py-3 px-4 border-b border-gray-100 text-center text-gray-600">{result.totalQuestions}</td>
-                    <td className="py-3 px-4 border-b border-gray-100 text-center text-sm">
-                      {result.completedAt ? new Date(result.completedAt).toLocaleString() : 'N/A'}
+                    <td className="py-3 px-4 border-b border-gray-100 text-center font-medium">
+                      {result.correctAnswers}
                     </td>
-                    <td className="py-3 px-4 border-b border-gray-100 text-center">
-                      {rankIndex !== -1 && (
-                        <div className="flex justify-center">
-                          {getRankBadge(rankIndex)}
-                        </div>
-                      )}
+                    <td className="py-3 px-4 border-b border-gray-100 text-center text-gray-600">
+                      {result.totalQuestions}
+                    </td>
+                    <td className="py-3 px-4 border-b border-gray-100 text-center text-sm">
+                      {result.completedAt
+                        ? new Date(result.completedAt).toLocaleString()
+                        : "N/A"}
                     </td>
                   </tr>
                 );
@@ -523,7 +739,7 @@ const QuizResults: React.FC<QuizResultsProps> = ({ quizName, quizCode, quizId })
           </table>
         </div>
       </div>
-    
+
       <div className="mt-6 bg-gray-50 p-4 rounded-lg">
         <h3 className="text-xl font-semibold mb-4 text-gray-700 flex items-center">
           <Clock size={20} className="mr-2 text-indigo-500" />
@@ -534,16 +750,28 @@ const QuizResults: React.FC<QuizResultsProps> = ({ quizName, quizCode, quizId })
             <div className="text-sm text-gray-500 mb-1">Excellent (90%+)</div>
             <div className="flex items-center">
               <div className="text-xl font-bold text-green-600 mr-2">
-                {results.filter(r => r.score >= 90).length}
+                {results.filter((r) => r.score >= 90).length}
               </div>
               <div className="text-sm text-gray-500">
-                ({((results.filter(r => r.score >= 90).length / results.length) * 100).toFixed(1)}%)
+                (
+                {(
+                  (results.filter((r) => r.score >= 90).length /
+                    results.length) *
+                  100
+                ).toFixed(1)}
+                %)
               </div>
             </div>
             <div className="mt-2 h-2 bg-gray-100 rounded-full overflow-hidden">
-              <div 
-                className="bg-green-500 h-full rounded-full" 
-                style={{ width: `${(results.filter(r => r.score >= 90).length / results.length) * 100}%` }}
+              <div
+                className="bg-green-500 h-full rounded-full"
+                style={{
+                  width: `${
+                    (results.filter((r) => r.score >= 90).length /
+                      results.length) *
+                    100
+                  }%`,
+                }}
               ></div>
             </div>
           </div>
@@ -551,16 +779,29 @@ const QuizResults: React.FC<QuizResultsProps> = ({ quizName, quizCode, quizId })
             <div className="text-sm text-gray-500 mb-1">Good (70-89%)</div>
             <div className="flex items-center">
               <div className="text-xl font-bold text-blue-600 mr-2">
-                {results.filter(r => r.score >= 70 && r.score < 90).length}
+                {results.filter((r) => r.score >= 70 && r.score < 90).length}
               </div>
               <div className="text-sm text-gray-500">
-                ({((results.filter(r => r.score >= 70 && r.score < 90).length / results.length) * 100).toFixed(1)}%)
+                (
+                {(
+                  (results.filter((r) => r.score >= 70 && r.score < 90).length /
+                    results.length) *
+                  100
+                ).toFixed(1)}
+                %)
               </div>
             </div>
             <div className="mt-2 h-2 bg-gray-100 rounded-full overflow-hidden">
-              <div 
-                className="bg-blue-500 h-full rounded-full" 
-                style={{ width: `${(results.filter(r => r.score >= 70 && r.score < 90).length / results.length) * 100}%` }}
+              <div
+                className="bg-blue-500 h-full rounded-full"
+                style={{
+                  width: `${
+                    (results.filter((r) => r.score >= 70 && r.score < 90)
+                      .length /
+                      results.length) *
+                    100
+                  }%`,
+                }}
               ></div>
             </div>
           </div>
@@ -568,39 +809,67 @@ const QuizResults: React.FC<QuizResultsProps> = ({ quizName, quizCode, quizId })
             <div className="text-sm text-gray-500 mb-1">Average (50-69%)</div>
             <div className="flex items-center">
               <div className="text-xl font-bold text-yellow-600 mr-2">
-                {results.filter(r => r.score >= 50 && r.score < 70).length}
+                {results.filter((r) => r.score >= 50 && r.score < 70).length}
               </div>
               <div className="text-sm text-gray-500">
-                ({((results.filter(r => r.score >= 50 && r.score < 70).length / results.length) * 100).toFixed(1)}%)
+                (
+                {(
+                  (results.filter((r) => r.score >= 50 && r.score < 70).length /
+                    results.length) *
+                  100
+                ).toFixed(1)}
+                %)
               </div>
             </div>
             <div className="mt-2 h-2 bg-gray-100 rounded-full overflow-hidden">
-              <div 
-                className="bg-yellow-500 h-full rounded-full" 
-                style={{ width: `${(results.filter(r => r.score >= 50 && r.score < 70).length / results.length) * 100}%` }}
+              <div
+                className="bg-yellow-500 h-full rounded-full"
+                style={{
+                  width: `${
+                    (results.filter((r) => r.score >= 50 && r.score < 70)
+                      .length /
+                      results.length) *
+                    100
+                  }%`,
+                }}
               ></div>
             </div>
           </div>
           <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-100">
-            <div className="text-sm text-gray-500 mb-1">Needs Improvement (50%)</div>
+            <div className="text-sm text-gray-500 mb-1">
+              Needs Improvement (50%)
+            </div>
             <div className="flex items-center">
               <div className="text-xl font-bold text-red-600 mr-2">
-                {results.filter(r => r.score < 50).length}
+                {results.filter((r) => r.score < 50).length}
               </div>
               <div className="text-sm text-gray-500">
-                ({((results.filter(r => r.score < 50).length / results.length) * 100).toFixed(1)}%)
+                (
+                {(
+                  (results.filter((r) => r.score < 50).length /
+                    results.length) *
+                  100
+                ).toFixed(1)}
+                %)
               </div>
             </div>
             <div className="mt-2 h-2 bg-gray-100 rounded-full overflow-hidden">
-              <div 
-                className="bg-red-500 h-full rounded-full" 
-                style={{ width: `${(results.filter(r => r.score < 50).length / results.length) * 100}%` }}
+              <div
+                className="bg-red-500 h-full rounded-full"
+                style={{
+                  width: `${
+                    (results.filter((r) => r.score < 50).length /
+                      results.length) *
+                    100
+                  }%`,
+                }}
               ></div>
             </div>
           </div>
         </div>
       </div>
 
+      {/* Success Rate by Question section */}
       <div className="mt-8 bg-gray-50 p-4 rounded-lg">
         <h3 className="text-xl font-semibold mb-4 text-gray-700 flex items-center">
           <CheckCircle size={20} className="mr-2 text-green-500" />
@@ -613,67 +882,179 @@ const QuizResults: React.FC<QuizResultsProps> = ({ quizName, quizCode, quizId })
                 <th className="py-3 px-4 text-left">Question #</th>
                 <th className="py-3 px-4 text-center">Success Rate</th>
                 <th className="py-3 px-4 text-center">Correct / Total</th>
+                <th className="py-3 px-4 text-center">Participants</th>
               </tr>
             </thead>
             <tbody>
-              {Array.from({ length: results[0]?.totalQuestions || 0 }).map((_, qIndex) => {
-                const questionNumber = qIndex + 1;
-                // This is a placeholder - in a real app, you would calculate this from your data
-                // For now, generate random data for demonstration
-                const correctCount = Math.floor(Math.random() * results.length);
-                const successRate = (correctCount / results.length) * 100;
-                
-                return (
-                  <tr key={qIndex} className={qIndex % 2 === 0 ? 'bg-gray-50' : 'bg-white'}>
-                    <td className="py-3 px-4 border-b border-gray-100 font-medium">Question {questionNumber}</td>
-                    <td className="py-3 px-4 border-b border-gray-100">
-                      <div className="flex items-center">
-                        <div className="w-full bg-gray-200 rounded-full h-2.5 mr-2">
-                          <div 
-                            className={`h-2.5 rounded-full ${
-                              successRate >= 80 ? 'bg-green-500' : 
-                              successRate >= 60 ? 'bg-blue-500' : 
-                              successRate >= 40 ? 'bg-yellow-500' : 'bg-red-500'
-                            }`} 
-                            style={{ width: `${successRate}%` }}
-                          ></div>
-                        </div>
-                        <span className="text-sm font-medium">{successRate.toFixed(1)}%</span>
-                      </div>
-                    </td>
-                    <td className="py-3 px-4 border-b border-gray-100 text-center">
-                      {correctCount} / {results.length}
-                    </td>
-                  </tr>
-                );
-              })}
+              {Array.from({ length: results[0]?.totalQuestions || 0 }).map(
+                (_, qIndex) => {
+                  const { correct, total, rate, participantStatuses } =
+                    getQuestionSuccessRate(qIndex);
+                  return (
+                    <React.Fragment key={qIndex}>
+                      <tr
+                        className={qIndex % 2 === 0 ? "bg-gray-50" : "bg-white"}
+                      >
+                        <td className="py-3 px-4 border-b border-gray-100 font-medium">
+                          Question {qIndex + 1}
+                        </td>
+                        <td className="py-3 px-4 border-b border-gray-100">
+                          <div className="flex items-center">
+                            <div className="w-full bg-gray-200 rounded-full h-2.5 mr-2">
+                              <div
+                                className={`h-2.5 rounded-full ${
+                                  rate >= 80
+                                    ? "bg-green-500"
+                                    : rate >= 60
+                                    ? "bg-blue-500"
+                                    : rate >= 40
+                                    ? "bg-yellow-500"
+                                    : "bg-red-500"
+                                }`}
+                                style={{ width: `${rate}%` }}
+                              />
+                            </div>
+                            <span className="text-sm font-medium">
+                              {rate.toFixed(1)}%
+                            </span>
+                          </div>
+                        </td>
+                        <td className="py-3 px-4 border-b border-gray-100 text-center">
+                          {correct} / {total}
+                        </td>
+                        <td className="py-3 px-4 border-b border-gray-100 text-center">
+                          <button
+                            className="text-indigo-500 hover:text-indigo-700 focus:outline-none"
+                            onClick={() =>
+                              setExpandedQuestion(
+                                expandedQuestion === qIndex ? null : qIndex
+                              )
+                            }
+                          >
+                            {expandedQuestion === qIndex
+                              ? "Hide Participants"
+                              : "Show Participants"}
+                            {expandedQuestion === qIndex ? (
+                              <ChevronUp size={16} className="inline ml-1" />
+                            ) : (
+                              <ChevronDown size={16} className="inline ml-1" />
+                            )}
+                          </button>
+                        </td>
+                      </tr>
+                      {expandedQuestion === qIndex && (
+                        <tr>
+                          <td colSpan={4} className="bg-indigo-50 px-4 py-3">
+                            <div className="text-sm p-2">
+                              <h4 className="font-medium text-indigo-700 mb-2">
+                                Participant Status
+                              </h4>
+                              <div className="overflow-x-auto max-h-80">
+                                <table className="min-w-full divide-y divide-gray-200">
+                                  <thead className="bg-indigo-100">
+                                    <tr>
+                                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                                        Participant
+                                      </th>
+                                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                                        Email
+                                      </th>
+                                      <th className="px-4 py-2 text-center text-xs font-medium text-gray-600 uppercase tracking-wider">
+                                        Status
+                                      </th>
+                                    </tr>
+                                  </thead>
+                                  <tbody className="bg-white divide-y divide-gray-200">
+                                    {participantStatuses.map(
+                                      (participant, pIndex) => (
+                                        <tr
+                                          key={pIndex}
+                                          className="hover:bg-gray-50"
+                                        >
+                                          <td className="px-4 py-2 whitespace-nowrap">
+                                            <div className="text-sm font-medium text-gray-900">
+                                              {participant.name}
+                                            </div>
+                                          </td>
+                                          <td className="px-4 py-2 whitespace-nowrap">
+                                            <div className="text-sm text-gray-900">
+                                              {participant.email}
+                                            </div>
+                                          </td>
+                                          <td className="px-4 py-2 whitespace-nowrap text-center">
+                                            {participant.isCorrect ? (
+                                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                                Correct
+                                              </span>
+                                            ) : (
+                                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                                Incorrect
+                                              </span>
+                                            )}
+                                          </td>
+                                        </tr>
+                                      )
+                                    )}
+                                  </tbody>
+                                </table>
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
+                  );
+                }
+              )}
             </tbody>
           </table>
         </div>
       </div>
-    <div className="flex justify-between mt-8">
-      <button 
-        className="bg-gray-100 hover:bg-gray-200 text-gray-800 py-2 px-4 rounded-lg shadow flex items-center transition-colors duration-200"
-        onClick={() => window.history.back()}
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-        </svg>
-        Back to Quizzes
-      </button>
-      
-      <button 
-        className="bg-indigo-500 hover:bg-indigo-600 text-white py-2 px-4 rounded-lg shadow flex items-center transition-colors duration-200"
-        onClick={() => window.print()}
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-        </svg>
-        Export Results
-      </button>
+      <div className="flex justify-between mt-8">
+        <button
+          className="bg-gray-100 hover:bg-gray-200 text-gray-800 py-2 px-4 rounded-lg shadow flex items-center transition-colors duration-200"
+          onClick={() => window.history.back()}
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="h-5 w-5 mr-2"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M10 19l-7-7m0 0l7-7m-7 7h18"
+            />
+          </svg>
+          Back to Quizzes
+        </button>
+
+        <button
+          className="bg-indigo-500 hover:bg-indigo-600 text-white py-2 px-4 rounded-lg shadow flex items-center transition-colors duration-200"
+          onClick={() => window.print()}
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="h-5 w-5 mr-2"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"
+            />
+          </svg>
+          Export Results
+        </button>
+      </div>
     </div>
-  </div>
-);
+  );
 };
 
 export default QuizResults;

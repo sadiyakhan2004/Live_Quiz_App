@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import Input from "../ui/Input";
 import Textarea from "../ui/Textarea";
 import Button from "../ui/Button";
-import { useQuestions, QuestionData } from "@/context/QuestionProvider";
 import { useAppDispatch, useAppSelector } from "@/hooks/redux";
 import { addQuestion } from "@/store/features/questionSlice";
 import { v4 as uuidv4 } from "uuid";
@@ -13,12 +12,26 @@ import Tooltip from "../ui/Tooltip";
 import {
   updateResponse,
   isAnswerCorrect,
-  responses,
+  localResponses
 } from "@/controllers/response";
 
 interface Question {
   heading: string;
   paras: string[];
+}
+
+export interface QuestionData {
+  questionId: string;
+  currentQn: Question;
+  options?: string[];
+  correctAns: string | string[];
+  type:
+    | "checkbox"
+    | "radio"
+    | "short-answer"
+    | "fill-in-the-blank"
+    | "dropdown"
+    | "dnd";
 }
 
 interface DropdownItem {
@@ -36,6 +49,7 @@ interface QuizProps {
   options?: string[]; // Options for the dropdown
   reviewMode?: boolean;
   onAnswered?: () => void;
+ 
 }
 
 const DropDownComponent: React.FC<QuizProps> = ({
@@ -45,8 +59,8 @@ const DropDownComponent: React.FC<QuizProps> = ({
   options,
   reviewMode,
   onAnswered,
+ 
 }) => {
-  const { questions } = useQuestions();
 
   const dispatch = useAppDispatch();
 
@@ -77,12 +91,12 @@ const DropDownComponent: React.FC<QuizProps> = ({
 
   useEffect(() => {
     if (isQuizMode || reviewMode) {
-      const res = responses.find((res: any) => res.questionId === Qn_id);
+      const res = localResponses.find((res: any) => res.questionId === Qn_id);
       if (res?.userAns && Qn_id) {
         setUserAnswer(res.userAns);
       }
     }
-  }, [Qn_id, isQuizMode, reviewMode, responses]);
+  }, [Qn_id, isQuizMode, reviewMode, localResponses]);
 
   // Function to check if any content contains the {field} marker
   const hasDropdownMarker = () => {

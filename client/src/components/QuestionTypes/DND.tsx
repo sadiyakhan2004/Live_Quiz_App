@@ -1,12 +1,11 @@
 "use client";
 import { useState, useEffect, ReactNode } from "react";
-import { useQuestions, QuestionData } from "@/context/QuestionProvider";
 import { useAppDispatch, useAppSelector } from "@/hooks/redux";
 import { addQuestion } from "@/store/features/questionSlice";
 import {
   updateResponse,
   isAnswerCorrect,
-  responses,
+  localResponses
 } from "@/controllers/response";
 import { v4 as uuidv4 } from "uuid";
 import Input from "../ui/Input";
@@ -24,13 +23,30 @@ import {
   useSensors,
   DragEndEvent,
 } from "@dnd-kit/core";
-import { restrictToWindowEdges,  restrictToParentElement, } from "@dnd-kit/modifiers";
+import {
+  restrictToWindowEdges,
+  restrictToParentElement,
+} from "@dnd-kit/modifiers";
 import { CSS } from "@dnd-kit/utilities";
 import { useDraggable, useDroppable } from "@dnd-kit/core";
 
 interface Question {
   heading: string;
   paras: string[];
+}
+
+export interface QuestionData {
+  questionId: string;
+  currentQn: Question;
+  options?: string[];
+  correctAns: string | string[];
+  type:
+    | "checkbox"
+    | "radio"
+    | "short-answer"
+    | "fill-in-the-blank"
+    | "dropdown"
+    | "dnd";
 }
 
 interface DragDropQuizProps {
@@ -43,14 +59,12 @@ interface DragDropQuizProps {
   Qn_id?: string;
   reviewMode?: boolean;
   onAnswered?: () => void;
-  
 }
 
 interface DraggableOptionProps {
   option: string;
   isDisabled: boolean;
   isHighlighted: boolean;
-  
 }
 
 interface DroppableFieldProps {
@@ -62,7 +76,6 @@ const DraggableOption: React.FC<DraggableOptionProps> = ({
   option,
   isDisabled,
   isHighlighted,
-  
 }) => {
   const { attributes, listeners, setNodeRef, transform, isDragging } =
     useDraggable({
@@ -188,7 +201,6 @@ const OptionDropSlot: React.FC<{
   );
 };
 
-
 const DragDropQuizComponent: React.FC<DragDropQuizProps> = ({
   question,
   options = [],
@@ -196,9 +208,7 @@ const DragDropQuizComponent: React.FC<DragDropQuizProps> = ({
   Qn_id,
   reviewMode = false,
   onAnswered,
-
 }) => {
-  const { questions } = useQuestions();
   const dispatch = useAppDispatch();
   const [droppedAnswer, setDroppedAnswer] = useState<string>("");
   const [availableOptions, setAvailableOptions] = useState<string[]>(options);
@@ -274,7 +284,7 @@ const DragDropQuizComponent: React.FC<DragDropQuizProps> = ({
 
   useEffect(() => {
     if (isQuizMode) {
-      const res = responses.find((res: any) => res.questionId === Qn_id);
+      const res = localResponses.find((res: any) => res.questionId === Qn_id);
       if (res?.userAns && Qn_id) {
         const userAnswer = Array.isArray(res.userAns)
           ? res.userAns[0]
@@ -414,7 +424,7 @@ const DragDropQuizComponent: React.FC<DragDropQuizProps> = ({
   const renderWithField = (text: string) => {
     // For review mode
     if (reviewMode && Qn_id) {
-      const res = responses.find((res) => res.questionId === Qn_id);
+      const res = localResponses.find((res) => res.questionId === Qn_id);
       const userAnswer = res?.userAns;
       const answerToDisplay = Array.isArray(userAnswer)
         ? userAnswer.join(", ")
@@ -486,7 +496,6 @@ const DragDropQuizComponent: React.FC<DragDropQuizProps> = ({
   const handleHeadingChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setNewQuestion({ ...newQuestion, heading: e.target.value });
   };
-
 
   // Handlers for paragraphs
   const handleParaChange = (index: number, value: string) => {
@@ -592,7 +601,7 @@ const DragDropQuizComponent: React.FC<DragDropQuizProps> = ({
         onDragStart={handleDragStart}
         modifiers={[restrictToWindowEdges]}
       >
-        <div className={`w-full max-w-3xl mx-auto mt-8 relative h-full`} >
+        <div className={`w-full max-w-3xl mx-auto mt-8 relative h-full`}>
           <div className="bg-gray-100 p-6 rounded-md shadow-md mx-auto space-y-4  ">
             <div className="mb-6 w-full ">
               {question?.heading && (
@@ -600,14 +609,14 @@ const DragDropQuizComponent: React.FC<DragDropQuizProps> = ({
                   {renderWithField(question.heading)}
                 </h3>
               )}
-             
+
               {question?.paras?.map((para, i) => (
                 <p key={i} className="text-gray-600 mt-2">
                   {renderWithField(para)}
                 </p>
               ))}
             </div>
-            <div className="flex flex-wrap gap-4 mt-12 pt-4 rounded-xl"  >
+            <div className="flex flex-wrap gap-4 mt-12 pt-4 rounded-xl">
               {allOptions.map((option, index) => {
                 const isAvailable = availableOptions.includes(option);
 

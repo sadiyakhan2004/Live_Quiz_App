@@ -1,6 +1,5 @@
 "use client";
 import { useEffect, useState } from "react";
-//import { useQuestions, QuestionData } from "@/context/QuestionProvider";
 import { useAppDispatch, useAppSelector } from "@/hooks/redux";
 import { addQuestion } from "@/store/features/questionSlice";
 import Tooltip from "../ui/Tooltip";
@@ -11,7 +10,7 @@ import { Plus, Minus, AlertCircle } from "lucide-react";
 import {
   updateResponse,
   isAnswerCorrect,
-  responses,
+  localResponses,
 } from "@/controllers/response";
 import { v4 as uuidv4 } from "uuid";
 import TextArea from "../ui/Textarea";
@@ -32,6 +31,7 @@ interface Qn_Props {
   correctAns?: string[]; // Correct answers are now an array for multiple correct options.
   reviewMode?: boolean;
   onAnswered?: () => void;
+  
 }
 
 interface QuestionData {
@@ -55,6 +55,7 @@ const CheckboxQuizComponent: React.FC<Qn_Props> = ({
   Qn_id,
   reviewMode,
   onAnswered,
+ 
 }) => {
   //const { questions } = useQuestions();
   // State for form creation
@@ -85,14 +86,14 @@ const CheckboxQuizComponent: React.FC<Qn_Props> = ({
 
   useEffect(() => {
     if (isQuizMode || reviewMode) {
-      const res = responses.find((res: any) => res.questionId === Qn_id);
+      const res = localResponses.find((res: any) => res.questionId === Qn_id);
       if (res?.userAns && Qn_id) {
         setSelectedAnswers(
           Array.isArray(res.userAns) ? res.userAns : [res.userAns]
         );
       }
     }
-  }, [Qn_id, isQuizMode, reviewMode, responses]);
+  }, [Qn_id, isQuizMode, reviewMode, localResponses]);
 
   
   // Check if at least one field (heading, subheading, or content) has data

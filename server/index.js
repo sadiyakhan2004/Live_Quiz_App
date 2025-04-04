@@ -19,14 +19,15 @@ const io = new Server(server, {
 const connections = io.of("/mediasoup");
 
 let worker
-let rooms = {}          // { roomName1: { Router, rooms: [ sicketId1, ... ] }, ...}
+let rooms = {}          // { roomName1: { Router, rooms: [ socketId1, ... ] }, ...}
 let peers = {}          // { socketId1: { roomName1, socket, transports = [id1, id2,] }, producers = [id1, id2,] }, consumers = [id1, id2,], peerDetails }, ...}
+let participants = {}
 let transports = []     // [ { socketId1, roomName1, transport, consumer }, ... ]
 let producers = []      // [ { socketId1, roomName1, producer, }, ... ]
 let consumers = []      // [ { socketId1, roomName1, consumer, }, ... ]
-let quiz;
 
 let roomQuizStates = {};  // { roomName1: { quizState }, roomName2: { quizState }, ... }
+let roomSubmissions = {}; // { roomName: { [socketId]: boolean } }
 
 // Server-side quiz controller
 const createQuizState = () => {
@@ -106,11 +107,11 @@ connections.on('connection', async socket => {
         socketId: socket.id,
     })
 
-
     // Register socket handlers
     // Handle joining quiz
     socket.on("join-quiz", (quizData) => {
         console.log("User joined quiz", socket.id);
+
 
         // Get the room name from peers object
         const roomName = peers[socket.id]?.roomName;
@@ -123,7 +124,7 @@ connections.on('connection', async socket => {
 
         // Initialize quiz state for this room if it doesn't exist
         if (!roomQuizStates[roomName]) {
-            roomQuizStates[roomName] = createQuizState();
+            roomQuizStates[roomName] = createQuizState()
         }
 
         const quizState = roomQuizStates[roomName];
@@ -227,7 +228,7 @@ connections.on('connection', async socket => {
     // Helper function to broadcast messages only to clients in a specific room
     function broadcastToRoom(roomName, eventName, data) {
         if (!rooms[roomName]) return;
-     
+
         rooms[roomName].peers.forEach(socketId => {
             if (peers[socketId] && peers[socketId].socket) {
                 peers[socketId].socket.emit(eventName, data);
@@ -236,7 +237,7 @@ connections.on('connection', async socket => {
             }
         });
     }
-    
+
     // Function to start the quiz - modified to be room-specific
     function startQuiz(roomName, quizData) {
         if (!quizData || !quizData.waitingTime || !quizData.timeLimit || !quizData.questionIds) {
@@ -258,14 +259,12 @@ connections.on('connection', async socket => {
         quizState.startTime = Date.now();
         quizState.endTime = quizState.startTime + (quizData.waitingTime * 60 * 1000); // Minutes to milliseconds
 
-        // Format initial waiting time (full minutes)
-        const minutes = Math.floor(quizData.waitingTime).toString().padStart(2, '0');
-        const formattedTime = `${minutes}:00.0`;
+        // Compute initial time left in milliseconds
+        const initialTimeLeft = quizData.waitingTime * 60 * 1000;
 
-        // Notify all clients in the room about waiting phase with formatted time
+        // Notify all clients in the room about waiting phase
         broadcastToRoom(roomName, "quiz-waiting", {
-            formattedTime: formattedTime,
-            timeLeftMs: quizData.waitingTime * 60 * 1000,
+            timeLeft: initialTimeLeft,
             serverTime: quizState.startTime,
             endTime: quizState.endTime
         });
@@ -275,18 +274,10 @@ connections.on('connection', async socket => {
         // Set up regular time updates
         quizState.currentTimeInterval = setInterval(() => {
             const currentTime = Date.now();
-            const timeLeftMs = Math.max(0, quizState.endTime - currentTime);
-
-            // Format time as MM:SS.D
-            const minutes = Math.floor(timeLeftMs / (60 * 1000)).toString().padStart(2, '0');
-            const seconds = Math.floor((timeLeftMs % (60 * 1000)) / 1000).toString().padStart(2, '0');
-            const deciseconds = Math.floor((timeLeftMs % 1000) / 100);
-
-            const formattedTime = `${minutes}:${seconds}.${deciseconds}`;
+            const timeLeft = Math.max(0, quizState.endTime - currentTime);
 
             broadcastToRoom(roomName, "time-update", {
-                formattedTime: formattedTime,
-                timeLeftMs: timeLeftMs,
+                timeLeft: timeLeft,
                 serverTime: currentTime
             });
 
@@ -306,7 +297,9 @@ connections.on('connection', async socket => {
                     // Move to next question
                     clearInterval(quizState.currentTimeInterval);
                     quizState.currentTimeInterval = null;
-                    moveToNextQuestion(roomName);
+                    //moveToNextQuestion(roomName);
+                    broadcastToRoom(roomName , "time-out");
+
                 }
             }
         }, 100); // Update more frequently (every 100ms) to show deciseconds
@@ -319,22 +312,19 @@ connections.on('connection', async socket => {
 
     // Function to move to the next question - modified to be room-specific
     function moveToNextQuestion(roomName) {
+
+        const room = peers[socket.id]?.roomName;
+        if (room && roomSubmissions[room]) {
+            roomSubmissions[roomName] = {};
+        }
         const quizState = roomQuizStates[roomName];
         quizState.currentIndex++;
         quizState.startTime = Date.now();
         quizState.endTime = quizState.startTime + (quizState.timeLimit * 1000); // Seconds to milliseconds
 
-        // Format initial question time
-        const minutes = Math.floor(quizState.timeLimit / 60).toString().padStart(2, '0');
-        const seconds = (quizState.timeLimit % 60).toString().padStart(2, '0');
-        const formattedTime = `${minutes}:${seconds}.0`;
-
-        console.log(`Moving to question ${quizState.currentIndex + 1} in room ${roomName}`);
-
         broadcastToRoom(roomName, "question-update", {
             currentIndex: quizState.currentIndex,
-            formattedTime: formattedTime,
-            timeLeftMs: quizState.timeLimit * 1000,
+            timeLeft: quizState.timeLimit * 1000, // Convert to milliseconds
             questionId: quizState.questionIds[quizState.currentIndex],
             questionText: quizState.questions[quizState.currentIndex]?.questionText,
             options: quizState.questions[quizState.currentIndex]?.options,
@@ -345,21 +335,12 @@ connections.on('connection', async socket => {
         // Set up time updates for this question
         quizState.currentTimeInterval = setInterval(() => {
             const currentTime = Date.now();
-            const timeLeftMs = Math.max(0, quizState.endTime - currentTime);
-
-            // Format time as MM:SS.D
-            const minutes = Math.floor(timeLeftMs / (60 * 1000)).toString().padStart(2, '0');
-            const seconds = Math.floor((timeLeftMs % (60 * 1000)) / 1000).toString().padStart(2, '0');
-            // const deciseconds = Math.floor((timeLeftMs % 1000) / 100);
-
-            const formattedTime = `${minutes}:${seconds}`;
+            const timeLeft = Math.max(0, quizState.endTime - currentTime);
 
             broadcastToRoom(roomName, "time-update", {
-                formattedTime: formattedTime,
-                timeLeftMs: timeLeftMs,
+                timeLeft: timeLeft,
                 serverTime: currentTime
             });
-
             if (currentTime >= quizState.endTime) {
                 clearInterval(quizState.currentTimeInterval);
                 quizState.currentTimeInterval = null;
@@ -369,30 +350,41 @@ connections.on('connection', async socket => {
                     endQuiz(roomName);
                 } else {
                     // Move to next question
-                    moveToNextQuestion(roomName);
+                    //moveToNextQuestion(roomName);
+                    broadcastToRoom(roomName , "time-out");
                 }
             }
         }, 100); // Update more frequently to show deciseconds
     }
 
+    socket.on("next-question", ({roomName})=>{
+        moveToNextQuestion(roomName)
+    })
+
+    socket.on("quiz-completion", ({roomName}) => {
+        broadcastToRoom( roomName , "quiz-completed"); 
+    });
+
+
+ 
     // Function to end the quiz - modified to be room-specific
     function endQuiz(roomName) {
         console.log(`Quiz ended in room ${roomName}`);
         const quizState = roomQuizStates[roomName];
-        
+
         // Clear all intervals to prevent any further quiz actions
         if (quizState.currentTimeInterval) {
             clearInterval(quizState.currentTimeInterval);
             quizState.currentTimeInterval = null;
         }
-        
+
         // Set flags to prevent further quiz actions
         quizState.isRunning = false;
         quizState.hasEnded = true; // Add a new flag to track quiz end state
-        
+
         // Broadcast end to all clients
         broadcastToRoom(roomName, "quiz-end");
-        
+
         // Clean up quiz state after a delay to ensure all clients receive the end message
         setTimeout(() => {
             delete roomQuizStates[roomName];
@@ -410,6 +402,35 @@ connections.on('connection', async socket => {
         return items
     }
 
+    // Remove participant
+    function removeParticipant(socketId) {
+        const peer = peers[socketId];
+        if (!peer) return;
+
+        const roomName = peer.roomName;
+        if (rooms[roomName] && rooms[roomName].participants) {
+            // Find the participant to get their details before removing
+            const participant = rooms[roomName].participants.find(p => p.socketId === socketId);
+
+            // Remove the participant from the room
+            rooms[roomName].participants = rooms[roomName].participants.filter(
+                p => p.socketId !== socketId
+            );
+
+            // If we found participant details, notify others about the departure
+            if (participant) {
+                console.log(`Participant ${participant.name} left room ${roomName}`);
+
+                // Notify remaining participants
+                broadcastToRoom(roomName, 'participant-left', {
+                    socketId,
+                    name: participant.name
+                });
+            }
+        }
+    }
+
+
     socket.on('disconnect', () => {
         // Ensure peers[socket.id] exists before destructuring
         if (peers[socket.id]) {
@@ -419,6 +440,9 @@ connections.on('connection', async socket => {
             transports = removeItems(transports, socket.id, 'transport');
 
             const { roomName, peerDetails } = peers[socket.id];
+
+            // Remove participant from room
+            removeParticipant(socket.id);
 
             // If this peer was the admin and there are other peers in the room
             if (peerDetails.isAdmin && rooms[roomName] && rooms[roomName].peers.length > 0) {
@@ -440,17 +464,17 @@ connections.on('connection', async socket => {
                     router: rooms[roomName].router,
                     peers: rooms[roomName].peers.filter(socketId => socketId !== socket.id),
                 };
-                
+
                 // Check if room is now empty and has an active quiz
                 if (rooms[roomName].peers.length === 0 && roomQuizStates[roomName]) {
                     console.log(`Last user left room ${roomName}, ending quiz immediately`);
-                    
+
                     // Clear any existing intervals first
                     if (roomQuizStates[roomName].currentTimeInterval) {
                         clearInterval(roomQuizStates[roomName].currentTimeInterval);
                         roomQuizStates[roomName].currentTimeInterval = null;
                     }
-                    
+
                     // Then end the quiz
                     endQuiz(roomName);
                 }
@@ -460,14 +484,6 @@ connections.on('connection', async socket => {
         }
     });
 
-    socket.on("room:LogIn", data => {
-        const { email, room, name, socketId } = data;
-        console.log(data)
-        // emailToSocketIdMap.set(email, socket.id);
-
-        connections.to(socket.id).emit("room:join", data);
-    })
-
 
     // Handle camera state change
     socket.on('cameraStateChanged', (data) => {
@@ -476,7 +492,7 @@ connections.on('connection', async socket => {
         connections.emit('cameraStateChanged', data); // Notify all other clients
     });
 
-    socket.on('joinRoom', async ({ roomName }, callback) => {
+    socket.on('joinRoom', async ({ roomName, username, email }, callback) => {
         // create Router if it does not exist
         // const router1 = rooms[roomName] && rooms[roomName].get('data').router || await createRoom(roomName, socket.id)
         const router1 = await createRoom(roomName, socket.id);
@@ -491,25 +507,66 @@ connections.on('connection', async socket => {
             producers: [],
             consumers: [],
             peerDetails: {
-                name: '',
+                name: username, // Name of the Peer
                 isAdmin: isFirstPeer,   // Is this Peer the Admin?
             }
         }
 
+        // Create new participant object
+        const newParticipant = {
+            socketId: socket.id,
+            name: username,
+            email: email,
+            isHost: isFirstPeer
+        };
+
+
+        // Add participant to the room's participants array
+        if (!rooms[roomName].participants) {
+            rooms[roomName].participants = [];
+        }
+
+        rooms[roomName].participants.push(newParticipant);
+
+        console.log(`New participant added to room ${roomName}:`, username);
+        console.log(`Total participants in room ${roomName}:`, rooms[roomName].participants.length);
+
+        // Notify all OTHER participants in the room about the new participant
+        rooms[roomName].peers.forEach(peerSocketId => {
+            if (peerSocketId !== socket.id && peers[peerSocketId]) {
+                peers[peerSocketId].socket.emit('participant-joined', newParticipant);
+            }
+        });
+
         // get Router RTP Capabilities
         const rtpCapabilities = router1.rtpCapabilities
 
+        // Send the complete list of existing participants to the newly joined user
+        const existingParticipants = rooms[roomName].participants;
+
+
         // Notify the user that they have successfully joined the room
         socket.emit('room-joined', {
-            roomName,
-            success: true,
-            message: `You have successfully joined room: ${roomName}`
+            quizId: roomName,
+            userData: { username, email },
+            isHost: isFirstPeer,
+            // success: true,
+            // message: `You have successfully joined room: ${roomName}`
         });
 
         // call callback from the client and send back the rtpCapabilities
-        callback({ rtpCapabilities, isAdmin: isFirstPeer })
+        callback({ rtpCapabilities, isAdmin: isFirstPeer, participants: existingParticipants })
     })
 
+
+    // Also create a new event handler that allows users to request the current participant list at any time
+    socket.on('get-participants', ({ roomName }, callback) => {
+        if (rooms[roomName] && rooms[roomName].participants) {
+            callback({ participants: rooms[roomName].participants });
+        } else {
+            callback({ participants: [] });
+        }
+    });
 
     const createRoom = async (roomName, socketId) => {
         // worker.createRouter(options)
@@ -519,9 +576,11 @@ connections.on('connection', async socket => {
         // none of the two are required
         let router1
         let peers = []
+        let participants = []
         if (rooms[roomName]) {
             router1 = rooms[roomName].router
             peers = rooms[roomName].peers || []
+            participants = rooms[roomName].participants || []
         } else {
             router1 = await worker.createRouter({ mediaCodecs, })
         }
@@ -531,6 +590,7 @@ connections.on('connection', async socket => {
         rooms[roomName] = {
             router: router1,
             peers: [...peers, socketId],
+            participants: [...participants]
         }
 
         return router1
@@ -653,7 +713,9 @@ connections.on('connection', async socket => {
     })
 
     const informConsumers = (roomName, socketId, id, appData) => {
-        console.log(`just joined, id ${id} ${roomName}, ${socketId}`)
+        console.log(`just joined, id ${id} ${roomName}, ${socketId}`);
+
+
         // A new producer just joined
         // let all consumers to consume this producer
         producers.forEach(producerData => {
@@ -663,7 +725,10 @@ connections.on('connection', async socket => {
                 producerSocket.emit('new-producer', { producerId: id, appData })
             }
         })
+
+
     }
+
 
     const getTransport = (transportId) => {
         const [producerTransport] = transports.filter(transport => transport.transportId === transportId && !transport.consumer)
@@ -695,6 +760,7 @@ connections.on('connection', async socket => {
     socket.on('transport-produce', async ({ kind, rtpParameters, appData, transportId }, callback) => {
         const transport = getTransport(transportId);
 
+        console.log("appData", appData);
         // Ensure produce is only called once the transport is connected
 
         try {
@@ -797,7 +863,7 @@ connections.on('connection', async socket => {
 
 
 
-                addConsumer(consumer, roomName)
+                addConsumer(consumer, roomName);
 
                 // from the consumer extract the following params
                 // to send back to the Client
@@ -830,17 +896,45 @@ connections.on('connection', async socket => {
         await consumer.resume()
     })
 
+    socket.on('producer-close', async ({ producerId, roomName }) => {
+        console.log(`Received request to close producer with ID: ${producerId}`);
+        
+        // Find and close the producer
+        const producerData = producers.find(p => p.producerId === producerId);
+        if (producerData) {
+            console.log(`Closing producer: ${producerId}`);
+            
+            // Close the producer on server side
+            try {
+                await producerData.producer.close();
+            } catch (error) {
+                console.error(`Error closing producer ${producerId}:`, error);
+            }
+            
+            // Remove from producers list
+            producers = producers.filter(p => p.producerId !== producerId);
+            
+            // Notify all other participants in the room
+            if (rooms[roomName]) {
+                rooms[roomName].peers.forEach(peerSocketId => {
+                    if (peerSocketId !== socket.id && peers[peerSocketId]) {
+                        peers[peerSocketId].socket.emit('producer-closed', { 
+                            remoteProducerId: producerId 
+                        });
+                    }
+                });
+            }
+        } else {
+            console.log(`Producer with ID ${producerId} not found.`);
+        }
+    });
+
 
     // Listen for the "sendMsg" event
     socket.on("sendMsg", async (data) => {
-        const { msg, socketId } = data;
-
-        //console.log("senderName ", name)
-
-        // Emit the message to all connected clients (including the sender)
-        // Send as an array containing the message da
-        // ta
-        connections.emit("newMsg", [{ msg: msg, socketId: socket.id }]);
+        const { msg, sender, email} = data;
+        const { roomName } = peers[socket.id]
+        broadcastToRoom( roomName ,"newMsg", [{ msg: msg, socketId: socket.id, sender, email }]);
     });
 
 

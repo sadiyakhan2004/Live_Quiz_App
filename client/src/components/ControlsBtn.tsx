@@ -22,6 +22,8 @@ interface VideoControlsProps {
   videoProducerId: string;
   isQuiz?: boolean;
   isHost?: boolean;
+  stopScreenSharing: () => void;
+  isScreenSharingOff: boolean;
 }
 
 const VideoControls: React.FC<VideoControlsProps> = ({
@@ -33,12 +35,27 @@ const VideoControls: React.FC<VideoControlsProps> = ({
   audioProducerId,
   videoProducerId,
   isQuiz = false, // Default to false
-  isHost = false  // Default to false
+  isHost = false,  // Default to false
+  stopScreenSharing,
+  isScreenSharingOff,
 }) => {
   const [isAudioMuted, setIsAudioMuted] = useState<boolean>(true); // Track audio mute state
   const [isVideoMuted, setIsVideoMuted] = useState<boolean>(true); // Track video mute state
+  const [isScreenSharing, setIsScreenSharing] = useState<boolean>(false); // Track screen sharing state
+  const [msgCount, setMsgCount] = useState<number>(0); // Track message count
 
   const socket = useSocket();
+
+    useEffect(() => {
+      if (!socket) return;
+  
+      // Listen for new messages
+      socket.on("newMsg", ()=>setMsgCount((prevCount) => prevCount + 1));
+  
+      return () => {
+        socket.off("newMsg", ()=>setMsgCount((prevCount) => prevCount + 1));
+      };
+    }, [socket]);
 
   const handleMediaToggle = (userId: string, isMuted: boolean, media: string) => {
     // Send a message to the other user (via socket.io or signaling mechanism)
@@ -73,9 +90,16 @@ const VideoControls: React.FC<VideoControlsProps> = ({
     producerClose();
   };
 
-  // Handle Screen Sharing
-  const handleScreenShare = async () => {
+  // Handle Screen Share (Start)
+  const handleStartScreenShare = () => {
     startScreenShare();
+    setIsScreenSharing(true);
+  };
+
+  // Handle Stop Screen Share
+  const handleStopScreenShare = () => {
+    stopScreenSharing();
+    setIsScreenSharing(false);
   };
 
   // Determine if screen sharing should be shown
@@ -130,12 +154,25 @@ const VideoControls: React.FC<VideoControlsProps> = ({
 
       {/* Screen Share Button - Only show if not in quiz mode or is host */}
       {showScreenSharing && (
-        <button
-          onClick={handleScreenShare}
-          className="bg-gray-700 p-4 rounded-full text-white"
-        >
-          <FaDesktop className="text-white" />
-        </button>
+        (isScreenSharing && !isScreenSharingOff) ? (
+          // Red button for stopping screen share when active
+          <button
+            onClick={handleStopScreenShare}
+            className="bg-red-600 p-4 rounded-full text-white"
+            title="Stop Screen Sharing"
+          >
+            <FaDesktop className="text-white" />
+          </button>
+        ) : (
+          // Gray button for starting screen share when inactive
+          <button
+            onClick={handleStartScreenShare}
+            className="bg-gray-700 p-4 rounded-full text-white"
+            title="Start Screen Sharing"
+          >
+            <FaDesktop className="text-white" />
+          </button>
+        )
       )}
 
       {/* Leave Meeting Button */}

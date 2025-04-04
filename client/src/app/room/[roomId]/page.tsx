@@ -5,13 +5,16 @@ import { Device } from "mediasoup-client";
 import { Producer } from "mediasoup-client/lib/Producer";
 import { Transport } from "mediasoup-client/lib/Transport";
 import { Consumer } from "mediasoup-client/lib/Consumer";
-import { useParams, useSearchParams } from "next/navigation";
+import { useParams, } from "next/navigation";
+import { useRouter } from "next/navigation"; 
 
 import "@/app/globals.css";
 import VideoGrid from "@/components/VideoGrid";
 import ControlsBtn from "@/components/ControlsBtn";
 import SlideBar from "@/components/SlideBar";
 import InvitePeople from "@/components/InvitePeople";
+import UserAuthForm from "@/components/helperComponents/UserAuthForm";
+
 
 interface Stream {
   track: MediaStreamTrack;
@@ -21,6 +24,9 @@ interface Stream {
   isCameraOn?: boolean;
   isMicrophoneOn?: boolean;
   videoStyle?: React.CSSProperties;
+  isHost?: boolean;
+  name?: string;
+  email?: string;
 }
 
 interface ConsumerTransportData {
@@ -41,12 +47,24 @@ interface MediaChangeData {
   media: "audio" | "video";
 }
 
+
+interface Participant {
+  socketId: string;
+  name: string;
+  email: string;
+  isHost: boolean;
+}
+
 function Home() {
+  const router = useRouter();
   const path = useParams(); // Dynamic route segments
   const roomId = path.roomId as string;
   const socket = useSocket();
   const [roomName, setRoomName] = useState<string | string[]>(roomId);
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
+   const [showAuthForm, setShowAuthForm] = useState(true);
+   const [userData, setUserData] = useState({ username: "", email: "" });
+    const [isScreenSharingOff, setIsScreenSharingOff] = useState(true);
 
   let device: Device;
   let rtpCapabilities: any;
@@ -60,6 +78,9 @@ function Home() {
   const [mainTransport, setMainTransport] = useState<Transport | null>(null);
   const [audioProducerId, setAudioProducerId] = useState<string >('');
   const [videoProducerId, setVideoProducerId] = useState<string >('');
+  const [isHost, setIsHost] = useState<boolean>(false);
+  
+    const [participants, setParticipants] = useState<Participant[]>([]);
 
   let params = {
     // mediasoup params
@@ -107,11 +128,27 @@ function Home() {
   let consumer: Consumer;
 
   const [streams, setStreams] = useState<Stream[]>([]);
+
+  const handleUserAuth = ({
+    username,
+    email,
+  }: {
+    username: string;
+    email: string;
+  }) => {
+    setUserData({ username, email });
+    setShowAuthForm(false);
+    // Now that we have user info, we can start the media connection
+    getLocalStream(username, email);
+  };
   
-  const getLocalStream = async (): Promise<void> => {
+  const getLocalStream = async (
+    username: string,
+    email: string
+  ): Promise<void> => {
     const stream = await navigator.mediaDevices.getUserMedia({
       audio: true,
-      video: { width: 1920, height: 1080 }, // Increase resolution for better quality
+      video: { width: 1920, height: 1080 },
     });
 
     setLocalStream(stream);
@@ -119,22 +156,63 @@ function Home() {
     audioParams = { track: stream.getAudioTracks()[0], ...audioParams };
     videoParams = { track: stream.getVideoTracks()[0], ...videoParams };
 
-    joinRoom();
+    // Pass username and email to joinRoom
+    joinRoom(username, email);
+  };
+  const joinRoom = (username: string, email: string): void => {
+    socket?.emit(
+      "joinRoom",
+      { roomName, username, email },
+      async (data: {
+        rtpCapabilities: any;
+        isAdmin: boolean;
+        participants: Participant[];
+      }) => {
+        console.log(`Router RTP Capabilities... ${data.rtpCapabilities}`);
+        // we assign to local variable and will be used when
+        // loading the client Device (see createDevice above)
+
+        // Set the host status first
+        const isUserHost = data.isAdmin;
+        const existingParticipants = data.participants;
+        setIsHost(isUserHost);
+        setParticipants(existingParticipants);
+
+        console.log("existing paticipants", existingParticipants);
+
+        // Now define the parameters with the correct isHost value
+        audioParams = {
+          ...audioParams,
+          appData: {
+            ...audioParams.appData,
+            isHost: isUserHost,
+          },
+        };
+
+        videoParams = {
+          ...videoParams,
+          appData: {
+            ...videoParams.appData,
+            isHost: isUserHost,
+            username,
+            email,
+          },
+        };
+
+        rtpCapabilities = data.rtpCapabilities;
+        // once we have rtpCapabilities from the Router, create Device
+        device = await createDevice(rtpCapabilities);
+        producerTransport = await createSendTransport(device);
+        setMainTransport(producerTransport);
+        connectSendTransport(producerTransport, {
+          username,
+          email,
+          isHost: data.isAdmin,
+        });
+      }
+    );
   };
 
-  const joinRoom = (): void => {
-    socket?.emit("joinRoom", { roomName }, async (data: { rtpCapabilities: any }) => {
-      console.log(`Router RTP Capabilities... ${data.rtpCapabilities}`);
-      // we assign to local variable and will be used when
-      // loading the client Device (see createDevice above)
-      rtpCapabilities = data.rtpCapabilities;
-      // once we have rtpCapabilities from the Router, create Device
-      device = await createDevice(rtpCapabilities);
-      producerTransport = await createSendTransport(device);
-      setMainTransport(producerTransport);
-      connectSendTransport(producerTransport);
-    });
-  };
 
   // A device is an endpoint connecting to a Router on the
   // server side to send/recive media
@@ -230,7 +308,10 @@ function Home() {
     return await transport.produce(params); // Pass the params object
   };
 
-  const connectSendTransport = async (Transport: Transport): Promise<void> => {
+  const connectSendTransport = async (
+    Transport: Transport,
+    userdata: { username: string; email: string; isHost: boolean }
+  ): Promise<void> => {
     // we now call produce() to instruct the producer transport
     // to send media to the Router
     // https://mediasoup.org/documentation/v3/mediasoup-client/api/#transport-produce
@@ -251,6 +332,9 @@ function Home() {
         userId: videoProducer.id,
         isCameraOn: videoParams.track.enabled,
         isMicrophoneOn: audioParams.track.enabled,
+        isHost: userdata.isHost,
+        name: userdata.username,
+        email: userdata.email,
       },
     ]);
 
@@ -353,7 +437,6 @@ function Home() {
       );
     }
 
-    // remove the video div element
 
     // Remove the video div element
     setStreams((prevStreams) => {
@@ -404,11 +487,11 @@ function Home() {
         console.log(`Consumer Params ${params}`);
 
         // Log individual param values if needed
-        console.log("Consumer Params ID:", params.id);
-        console.log("Consumer Params Producer ID:", params.producerId);
-        console.log("Consumer Params Kind:", params.kind);
-        console.log("Consumer Params Type:", params.type);
-        console.log("Consumer Params RTP Parameters:", params.rtpParameters);
+        // console.log("Consumer Params ID:", params.id);
+        // console.log("Consumer Params Producer ID:", params.producerId);
+        // console.log("Consumer Params Kind:", params.kind);
+        // console.log("Consumer Params Type:", params.type);
+        // console.log("Consumer Params RTP Parameters:", params.rtpParameters);
 
         // then consume with the local consumer transport
         // which creates a consumer
@@ -460,11 +543,14 @@ function Home() {
             {
               track: track,
               kind: params.kind,
-              type: params.type,
+              type: params.appData?.type,
               userId: remoteProducerId,
               isCameraOn: track.enabled,
               isMicrophoneOn: track.enabled,
               videoStyle, // Pass the dynamic style to adjust the size
+              isHost: params.appData?.isHost || false,
+              name: params.appData?.username || "",
+              email: params.appData?.email || "",
             },
           ]);
         }
@@ -478,6 +564,18 @@ function Home() {
     );
   };
 
+
+  const handleParticipants = (newParticipant: any) => {
+    console.log(`New participant joined: ${newParticipant.name}`);
+
+    // Add the new participant to our state
+    setParticipants((prevParticipants) => {
+      const updatedParticipants = [...prevParticipants, newParticipant];
+      console.log("Updated participant list:", updatedParticipants);
+      return updatedParticipants;
+    });
+  };
+
   // Listen for `new-producer` events
   useEffect(() => {
     if (socket) {
@@ -486,6 +584,7 @@ function Home() {
         handleProducerClosed(remoteProducerId);
       });
       socket.on("cameraStateChanged", handleMediaChange);
+      socket.on("participant-joined", handleParticipants);
     }
     return () => {
       if (socket) {
@@ -494,6 +593,7 @@ function Home() {
           handleProducerClosed(remoteProducerId);
         });
         socket.off("cameraStateChanged", handleMediaChange);
+        socket.off("participant-joined", handleParticipants);
       }
     };
   }, [socket]);
@@ -540,8 +640,16 @@ function Home() {
     });
   };
 
+  interface ScreenProducers {
+    video?: Producer;
+    audio?: Producer;
+  }
+
+  const [screenProducers, setScreenProducers] = useState<ScreenProducers>({});
+
   const startScreenShare = async (): Promise<void> => {
     try {
+      stopScreenSharing();
       // Request screen sharing
       const screenStream = await navigator.mediaDevices.getDisplayMedia({
         video: true,
@@ -550,9 +658,31 @@ function Home() {
 
       console.log("Start screen share", screenTransport);
 
+      setIsScreenSharingOff(false);
+
       // Get the video and audio tracks
       const videoTrack = screenStream.getVideoTracks()[0];
       const audioTrack = screenStream.getAudioTracks()[0];
+
+      // Fallback check for window sharing
+      const checkActive = () => {
+        if (videoTrack.readyState === "ended") {
+          setIsScreenSharingOff(true);
+          screenTransport.close();
+          setStreams((prev) =>
+            prev.filter((s) => s.userId !== screenVideoProducer.id)
+          );
+
+          if (screenAudioProducer) {
+            setStreams((prev) =>
+              prev.filter((s) => s.userId !== screenAudioProducer.id)
+            );
+          }
+        } else {
+          setTimeout(checkActive, 1000); // Check every second
+        }
+      };
+      checkActive();
 
       screenVideoParams = {
         track: screenStream.getVideoTracks()[0],
@@ -605,8 +735,11 @@ function Home() {
           },
         ]);
       }
-      // const videoCardId = screenProducer.id;
-      // screenVideoElement.id = videoCardId;
+      //  Update state
+      setScreenProducers({
+        video: screenVideoProducer,
+        audio: screenAudioProducer,
+      });
 
       // Listen for 'trackended' and 'transportclose' events
       screenVideoProducer.on("trackended", () => {
@@ -619,30 +752,79 @@ function Home() {
         // Close the producer when transport closes
       });
 
+      // Listen for 'trackended' and 'transportclose' events
+      screenAudioProducer.on("trackended", () => {
+        console.log("audio track ended");
+        // Close the producer when the track ends
+      });
+
+      screenAudioProducer.on("transportclose", () => {
+        console.log("audio transport closed");
+        // Close the producer when transport closes
+      });
+
       // Listen for the 'ended' event on the screen stream
-      if(screenVideoProducer.track){
-      screenVideoProducer.track.onended = () => {
-        console.log("Track ended");
-        screenTransport.close();
-        stopScreenSharing(screenVideoProducer.id);
-        stopScreenSharing(screenAudioProducer?.id);
-      };
-    }} catch (error) {
+      if (screenVideoProducer.track) {
+        screenVideoProducer.track.onended = () => {
+          console.log("Track ended");
+          setIsScreenSharingOff(true);
+          screenTransport.close();
+          setStreams((prev) =>
+            prev.filter((s) => s.userId !== screenVideoProducer.id)
+          );
+          setStreams((prev) =>
+            prev.filter((s) => s.userId !== screenAudioProducer.id)
+          );
+        };
+      }
+    } catch (error) {
       console.error("Error starting screen share:", error);
     }
   };
+  const stopScreenSharing = async (): Promise<void> => {
 
-  const stopScreenSharing = (videoCardId: string): void => {
-    setStreams((prevStreams) =>
-      prevStreams.filter((stream) => stream.userId !== videoCardId)
-    );
+    setIsScreenSharingOff(true);
+    try {
+      // Close producers if they exist
+      if (screenProducers.video) {
+        socket?.emit("producer-close", {
+          producerId: screenProducers.video.id,
+          roomName,
+        });
+        setStreams((prev) =>
+          prev.filter((s) => s.userId !== screenProducers?.video?.id)
+        );
+        screenProducers.video.close();
+      }
+
+      if (screenProducers.audio) {
+        socket?.emit("producer-close", {
+          producerId: screenProducers.audio.id,
+          roomName,
+        });
+        setStreams((prev) =>
+          prev.filter((s) => s.userId !== screenProducers?.audio?.id)
+        );
+        screenProducers.audio.close();
+      }
+
+      // Close transport if it exists
+      if (screenTransport) {
+        screenTransport.close();
+      }
+
+      // Reset state
+      setScreenProducers({});
+    } catch (error) {
+      console.error("Error stopping screen share:", error);
+    }
   };
 
   const producerClose = (): void => {
     if (mainTransport) {
       mainTransport.close();
     }
-    window.location.href = "/Home";
+    router.push('/Home');
   };
 
   // New features
@@ -655,11 +837,13 @@ function Home() {
   const toggleChat = (): void => setIsChatVisible(!isChatVisible);
 
   useEffect(() => {
+
+    
     if (!socket) return; // Wait until the socket is initialized
 
     const handleConnectionSuccess = (socketId: string, existsProducer: boolean) => {
       console.log(socketId, existsProducer); // Log the connection success message
-      getLocalStream();
+      // getLocalStream();
     };
 
     socket.on("connection-success", handleConnectionSuccess);
@@ -672,50 +856,64 @@ function Home() {
 
   return (
     <>
-      <div
-        id="room"
-        className="relative flex flex-col h-screen bg-gray-900 text-white overflow-hidden"
-      >
-        {/* Video Container */}
-        <VideoGrid streams={streams} />
 
-        {/* Chat Sidebar */}
+     {/* User Authentication Form */}
+          <UserAuthForm onSubmit={handleUserAuth} isVisible={showAuthForm} />
+
+        {/* Only show the room UI when auth is complete */}
+      {!showAuthForm && (
         <div
-          className={`fixed top-0 right-0 h-full w-64 bg-gray-800 text-white shadow-lg transform transition-transform duration-300 z-50 ${
-            isChatVisible ? "translate-x-0" : "translate-x-full"
+          id="room"
+          className="relative flex flex-col h-screen bg-gray-900 text-white overflow-hidden"
+        >
+          {/* Rest of your existing UI components */}
+          <VideoGrid
+            streams={streams}
+          />
+
+          {/* Chat Sidebar */}
+          <div
+            className={`fixed top-0 right-0 h-full w-64 bg-gray-800 text-white shadow-lg transform transition-transform duration-300 z-50 ${
+              isChatVisible ? "translate-x-0" : "translate-x-full"
+            }`}
+          >
+            <SlideBar isChatVisible={isChatVisible} userData={userData} participants = {participants} setIsChatVisible={toggleChat} />
+          </div>
+
+          {/* Invite Popup */}
+          {isInvitePopupVisible && (
+            <InvitePeople
+              path="room"
+              roomID={roomId}
+              toggleInvitePopup={toggleInvitePopup}
+              isInvitePopupVisible={isInvitePopupVisible}
+            />
+          )}
+        </div>
+      )}
+
+      {/* Footer - only show when auth is complete */}
+      {!showAuthForm && (
+        <div
+          className={`fixed bottom-0 left-0 w-full bg-gray-800 text-white p-1 flex justify-center z-40 ${
+            isChatVisible ? "opacity-100" : "opacity-100"
           }`}
         >
-          <SlideBar isChatVisible={isChatVisible} />
-        </div>
-
-        {/* Invite Popup */}
-        {isInvitePopupVisible && (
-          <InvitePeople
-            path="room"
-            roomID={roomId}
+          <ControlsBtn
+            myStream={localStream}
             toggleInvitePopup={toggleInvitePopup}
-            isInvitePopupVisible={isInvitePopupVisible}
+            toggleChat={toggleChat}
+            startScreenShare={startScreenShare}
+            producerClose={producerClose}
+            audioProducerId={audioProducerId}
+            videoProducerId={videoProducerId}
+            isQuiz={false}
+            isHost={isHost}
+            stopScreenSharing={stopScreenSharing}
+            isScreenSharingOff = {isScreenSharingOff}
           />
-        )}
-      </div>
-
-      {/* Footer */}
-      <div
-        className={`fixed bottom-0 left-0 w-full bg-gray-800 text-white p-1 flex justify-center z-40 ${
-          isChatVisible ? "opacity-100" : "opacity-100"
-        }`}
-      >
-        <ControlsBtn
-          myStream={localStream}
-          toggleInvitePopup={toggleInvitePopup}
-          // isChatVisible={isChatVisible}
-          toggleChat={toggleChat}
-          startScreenShare={startScreenShare}
-          producerClose={producerClose}
-          audioProducerId={audioProducerId}
-          videoProducerId={videoProducerId}
-        />
-      </div>
+        </div>
+      )}
     </>
   );
 }
