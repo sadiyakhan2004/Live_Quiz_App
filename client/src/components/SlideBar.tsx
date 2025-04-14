@@ -41,34 +41,39 @@ const SlideBar: React.FC<SlideBarProps> = ({
   }, [messages]);
 
   // Handle sending the message
+
   const handleMsg = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter" && msg.trim() !== "") {
-      // Emit message with sender's name and email
-      socket?.emit("sendMsg", {
+      const messageObj = {
         msg,
         sender: userData.username,
         email: userData.email
-      });
+      };
+      
+      // Emit message with sender's name and email
+      socket?.emit("sendMsg", messageObj);
+      
+      // Add to local messages (note: socketId will be undefined until server assigns one)
+      setMessages((prevMessages) => [
+        ...prevMessages, 
+        { ...messageObj, socketId: socket?.id || "" } // Use default value for socketId if undefined
+      ]);
+      
       setMsg(""); // Clear the message input
     }
-  };
+  }
 
-  // Handle receiving a new message
-  const handleNewMsg = (messageArray: Message[]) => {
-    // Since we're receiving an array of messages, we handle it properly
-    messageArray.forEach((messageData) => {
-      setMessages((prevMessages) => [...prevMessages, messageData]);
-    });
-  };
 
   useEffect(() => {
-    if (!socket) return;
-
-    // Listen for new messages
-    socket.on("newMsg", handleNewMsg);
-
+    if (socket) {
+      socket.on("newMsg", (messageData: Message) => {
+        console.log("newMsg",messageData);
+        setMessages(prevMessages => [...prevMessages, messageData]);
+      });
+    }
+    
     return () => {
-      socket.off("newMsg", handleNewMsg); // Cleanup the listener
+      socket?.off("newMsg");
     };
   }, [socket]);
 

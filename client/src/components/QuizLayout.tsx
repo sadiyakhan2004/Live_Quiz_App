@@ -16,9 +16,26 @@ interface Stream {
   id?: string;
 }
 
+interface QuizData {
+  quizName: string;
+  quizId: string;
+  quizCode: string;
+  questionIds: string[];
+  timeLimit: number;
+  waitingTime: number;
+  showAnswers: boolean;
+}
+
 interface VideoGridProps {
   streams: Stream[];
-  quizCode?: string;
+  isHost: boolean;
+  userData :{
+    username: string;
+    email: string;
+  }
+  quiz?: QuizData | null;
+  questions?: any[];
+  participants?: any[];
 }
 
 interface SpeakingUsers {
@@ -27,12 +44,17 @@ interface SpeakingUsers {
 
 const QuizLayout: React.FC<VideoGridProps> = ({ 
   streams, 
-  quizCode
+  isHost,
+  quiz,
+  questions,
+  userData,
+  participants
 }) => {
-  
+  const socket = useSocket();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [speakingUsers, setSpeakingUsers] = useState<SpeakingUsers>({});
   const [pinnedStreamIndex, setPinnedStreamIndex] = useState<number | null>(null);
+ 
   
   // Memoize the list of streams to avoid unnecessary re-renders
   const otherStreams = useMemo(() => streams.filter((stream) => stream.type !== "screen-video"), [streams]);
@@ -43,6 +65,7 @@ const QuizLayout: React.FC<VideoGridProps> = ({
     otherStreams.filter(stream => stream.kind === "video"), 
     [otherStreams]
   );
+
 
   // Effect to reset pinned state when streams change (e.g., someone leaves)
   useEffect(() => {
@@ -318,7 +341,7 @@ const QuizLayout: React.FC<VideoGridProps> = ({
         ) : (
           // Show quiz module when no screen share
           <div className="flex flex-col items-center justify-center h-full bg-gradient-to-br from-gray-900 to-gray-800 text-white p-8">
-            <Quiz quizCode={quizCode || ""}/>
+            <Quiz isAdmin={isHost} aboutUser={userData} quizDesc={quiz} quizQuestions={questions} participants={participants}/>
           </div>
         )}
       </div>

@@ -6,7 +6,6 @@ import QuestionLayout from "@/components/QuestionTypes/QuestionLayout";
 import { submitUserResponses } from "@/controllers/response";
 import { v4 as uuidv4 } from "uuid";
 import Link from "next/link";
-import { QuizTimer } from "./helperComponents/QuizTimer";
 import Button from "./ui/Button";
 import Statistics from "./helperComponents/Statistics";
 
@@ -21,11 +20,20 @@ interface QuizData {
   showAnswers: boolean;
 }
 
-interface QuizProps {
-  quizCode: string;
+interface TimeoutData {
+  currentIndex: number;
+  questionId: string;
 }
 
-const Quiz: React.FC<QuizProps> = ({ quizCode }) => {
+interface QuizProps {
+  isAdmin: boolean;
+  aboutUser?: any;
+  quizDesc?: QuizData | null;
+  quizQuestions?: any[];
+  participants?: any[];
+}
+
+const Quiz: React.FC<QuizProps> = ({ isAdmin, aboutUser, quizDesc, quizQuestions, participants }) => {
   const socket = useSocket();
   const [quiz, setQuiz] = useState<QuizData | null>(null);
   const [questions, setQuestions] = useState<any>([]);
@@ -36,8 +44,8 @@ const Quiz: React.FC<QuizProps> = ({ quizCode }) => {
   const [currentQuestion, setCurrentQuestion] = useState<any>(null);
   const [serverTimeOffset, setServerTimeOffset] = useState(0);
   const [quizJoined, setQuizJoined] = useState(false);
-  const [userData, setUserData] = useState<any>();
-  const [isHost, setIsHost] = useState(false);
+  const [userData, setUserData] = useState<any>(aboutUser);
+  const [isHost, setIsHost] = useState(isAdmin);
   const [endQuiz, setEndQuiz] = useState(false);
 
   // Add a new state for timer warning
@@ -47,12 +55,10 @@ const Quiz: React.FC<QuizProps> = ({ quizCode }) => {
   const [isCountingDown, setIsCountingDown] = useState(false);
   const [countdownValue, setCountdownValue] = useState(3);
 
-  // New state for question transition countdown
-  const [isQuestionCountingDown, setIsQuestionCountingDown] = useState(false);
-  const [questionCountdownValue, setQuestionCountdownValue] = useState(3);
-  const [pendingQuestionData, setPendingQuestionData] = useState<any>(null);
+  const [nextQuestionIndex, setNextQuestionIndex] = useState(-1);
+  const [isQuestionCountdown, setIsQuestionCountdown] = useState(false);
 
-  const [sessionId, setSessionId] = useState<string>();
+  const [userId, setuserId] = useState<string>();
 
   // Add a new state for submission status
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -103,14 +109,14 @@ const Quiz: React.FC<QuizProps> = ({ quizCode }) => {
   };
 
   useEffect(() => {
-    let storedSessionId = localStorage.getItem("sessionId");
+    let storeduserId = localStorage.getItem("userId");
 
-    if (!storedSessionId) {
-      storedSessionId = uuidv4(); // Create new session ID
-      localStorage.setItem("sessionId", storedSessionId || "");
+    if (!storeduserId) {
+      storeduserId = uuidv4(); // Create new session ID
+      localStorage.setItem("userId", storeduserId || "");
     }
 
-    setSessionId(storedSessionId || "");
+    setuserId(storeduserId || "");
   }, []);
 
   // Use ref for interval to avoid cleanup issues
@@ -141,22 +147,10 @@ const Quiz: React.FC<QuizProps> = ({ quizCode }) => {
 
   // Fetch quiz data
   useEffect(() => {
-    const getQuiz = async () => {
-      try {
-        const data = await fetchQuiz(quizCode);
-        console.log("Fetched quiz data:", data);
-        if (data) {
-          let quizName = data.quizName;
-          const fetchedQuestions = await fetchQuestions(quizName);
-
-          setQuiz(data);
-          setQuestions(fetchedQuestions);
-        }
-      } catch (error) {
-        console.error("Error fetching quiz data:", error);
-      }
-    };
-    getQuiz();
+    if (quizDesc && quizQuestions) {
+      setQuiz(quizDesc);
+      setQuestions(quizQuestions);
+    }
   }, []);
 
   // Calculate and update server time offset
@@ -235,36 +229,6 @@ const Quiz: React.FC<QuizProps> = ({ quizCode }) => {
     setIsTimerWarning(false);
   };
 
-  // Function to start question transition countdown
-  const startQuestionCountdown = (questionData: any) => {
-    // Store the pending question data
-    setPendingQuestionData(questionData);
-
-    // Set countdown state
-    setIsQuestionCountingDown(true);
-    setQuestionCountdownValue(3); // Start with 3 seconds
-
-    // Clear any existing countdown timer
-    if (questionCountdownIntervalRef.current) {
-      clearInterval(questionCountdownIntervalRef.current);
-    }
-
-    // Start countdown interval
-    questionCountdownIntervalRef.current = setInterval(() => {
-      setQuestionCountdownValue((prev) => {
-        const newValue = prev - 1;
-        if (newValue <= 0) {
-          // When countdown reaches zero, show the question
-          clearInterval(questionCountdownIntervalRef.current!);
-          processQuestionUpdate(questionData);
-          setIsQuestionCountingDown(false);
-          return 0;
-        }
-        return newValue;
-      });
-    }, 1000);
-  };
-
   // Function to process question update after countdown
   const processQuestionUpdate = (data: any) => {
     const {
@@ -283,6 +247,7 @@ const Quiz: React.FC<QuizProps> = ({ quizCode }) => {
     setTimeLeft(timeLeft);
     setCurrentQuestionSubmitted(false);
 
+    // Important: Reset showStatistics when a new question appears
     setShowStatistics(false);
 
     // Find the current question
@@ -317,7 +282,7 @@ const Quiz: React.FC<QuizProps> = ({ quizCode }) => {
 
   // Function to submit current question response
   const submitCurrentQuestionResponse = async () => {
-    if (!sessionId || isSubmitting || isHost || currentQuestionSubmitted) {
+    if (!userId || isSubmitting || isHost || currentQuestionSubmitted) {
       return;
     }
     setIsSubmitting(true);
@@ -331,7 +296,7 @@ const Quiz: React.FC<QuizProps> = ({ quizCode }) => {
       const isCompleted = currentIndex === questions.length - 1;
 
       const submittedResponse = await submitUserResponses(
-        sessionId,
+        userId,
         quizName,
         userData?.username || "",
         userData?.email || "",
@@ -351,6 +316,7 @@ const Quiz: React.FC<QuizProps> = ({ quizCode }) => {
 
   // Function to handle the end of the quiz
   const handleQuizEnd = async () => {
+    console.log("Quiz ended, cleaning up...");
     // Clear any timer when quiz ends
     cancelTimer();
 
@@ -360,10 +326,11 @@ const Quiz: React.FC<QuizProps> = ({ quizCode }) => {
     }
 
     // Set quiz as ended
+    setShowStatistics(false);
     setIsQuizEnded(true);
     setIsWaiting(false);
-    setIsCountingDown(false);
-    setIsQuestionCountingDown(false);
+    // setIsCountingDown(false);
+    setIsQuestionCountdown(false);
   };
 
   // Cleanup on component unmount
@@ -378,6 +345,21 @@ const Quiz: React.FC<QuizProps> = ({ quizCode }) => {
       stopTickSound();
     };
   }, []);
+
+  const handleTimeout = (data: TimeoutData): void => {
+    console.log("Received time-out event");
+    const questionData =
+      questions.find((q: any) => q.id === data.questionId) ||
+      questions[data.currentIndex];
+
+    if (data.currentIndex >= questions.length - 1) {
+      setEndQuiz(true);
+    }
+
+    setCurrentQuestion(questionData);
+    setShowStatistics(true);
+  };
+
 
   // Listen for socket events
   useEffect(() => {
@@ -422,53 +404,57 @@ const Quiz: React.FC<QuizProps> = ({ quizCode }) => {
         syncServerTime(serverTime);
         setIsWaiting(true);
         setIsQuizEnded(false);
-        setIsCountingDown(false);
-        setIsQuestionCountingDown(false);
+        // setIsCountingDown(false);
+        setIsQuestionCountdown(false);
         setTimeLeft(timeLeft);
+        // Reset showStatistics when entering waiting mode
+        setShowStatistics(false);
         startSyncedTimer(endTime);
       }
     );
 
     // Add handlers for countdown events
-    socket.on("countdown-start", ({ countdown }: { countdown: number }) => {
-      console.log("Countdown started:", countdown);
-      setIsCountingDown(true);
+    socket.on("countdown-start", ({ countdown, nextIndex }) => {
+      console.log("Question countdown started:", countdown);
+      setIsQuestionCountdown(true);
+      setCountdownValue(countdown);
+      setNextQuestionIndex(nextIndex);
+      setIsWaiting(false);
+      // Reset showStatistics when countdown starts
+      setShowStatistics(false);
+    });
+
+    socket.on("countdown-update", ({ countdown }) => {
       setCountdownValue(countdown);
     });
 
-    socket.on("countdown-update", ({ countdown }: { countdown: number }) => {
-      console.log("Countdown update:", countdown);
-      setCountdownValue(countdown);
+    // Modify question-update handler
+    socket.on("question-update", (data) => {
+      console.log("Received question-update event:", data);
+      syncServerTime(data.serverTime);
+
+      // Reset countdown state
+      setIsQuestionCountdown(false);
+      setCountdownValue(0);
+
+      // Process question normally
+      processQuestionUpdate(data);
     });
-
-    socket.on(
-      "question-update",
-      (data: {
-        currentIndex: number;
-        timeLeft: number;
-        questionId: string;
-        questionText?: string;
-        options?: string[];
-        serverTime: number;
-        endTime: number;
-      }) => {
-        console.log("Received question-update event:", data);
-        syncServerTime(data.serverTime);
-
-        // Start question transition countdown instead of immediately showing the question
-        startQuestionCountdown(data);
-      }
-    );
 
     socket.on(
       "time-update",
-      ({ timeLeft, serverTime }: { timeLeft: number; serverTime: number }) => {
-        // Only sync server time from time-update
-        syncServerTime(serverTime);
-      }
+      ({ timeLeft, serverTime }: { timeLeft: number; serverTime: number }) =>
+        syncServerTime(serverTime)
     );
 
-    socket.on("time-out", () => setShowStatistics(true));
+    // Time-out handler - just set showStatistics to true
+    // socket.on("time-out", () => {
+    //   console.log("Received time-out event");
+    //   setShowStatistics(true);
+    //   // Don't reset any other state to ensure Statistics stays visible
+    // });
+
+    socket.on("time-out", handleTimeout);
 
     socket.on("quiz-end", () => {
       console.log("Received quiz-end event");
@@ -478,6 +464,7 @@ const Quiz: React.FC<QuizProps> = ({ quizCode }) => {
 
     socket.on("quiz-completed", () => handleQuizEnd());
 
+
     return () => {
       // Clean up event listeners
       socket.off("room-joined");
@@ -486,11 +473,13 @@ const Quiz: React.FC<QuizProps> = ({ quizCode }) => {
       socket.off("countdown-update");
       socket.off("question-update");
       socket.off("time-update");
-      socket.off("time-out", () => setShowStatistics(true));
+      socket.off("time-out");
       socket.off("quiz-end");
       socket.off("quiz-completed", () => handleQuizEnd());
+     
+     
     };
-  }, [socket, questions, sessionId, quiz, currentQuestionSubmitted]);
+  }, [socket, questions, userId, quiz, currentQuestionSubmitted]);
 
   // Handler for manual submission button click
   const handleSubmitButtonClick = () => {
@@ -499,48 +488,48 @@ const Quiz: React.FC<QuizProps> = ({ quizCode }) => {
     }
   };
 
-  // Render quiz UI
+  // Render quiz UI - Updated to prioritize showing Statistics when showStatistics is true
   return (
     <div className="bg-gradient-to-br from-slate-900 to-blue-950 rounded-xl shadow-lg h-full w-full overflow-y-auto">
-      {isWaiting ? (
-        <div className="text-center py-16 text-white">
-          {isCountingDown ? (
-            <div className="flex flex-col items-center justify-center">
-              <h2 className="text-4xl font-bold mb-6">Ready?</h2>
-              <div className="relative">
-                <div className="w-32 h-32 bg-white bg-opacity-10 backdrop-blur-sm rounded-full flex items-center justify-center">
-                  <span className="text-6xl font-bold">{countdownValue}</span>
-                </div>
-                <div className="absolute inset-0 rounded-full border-4 border-blue-400 opacity-30 animate-ping"></div>
-              </div>
+      {showStatistics ? (
+        <div className="h-full w-full">
+          <Statistics
+            isHost={isHost}
+            quizName={quiz?.quizName || ""}
+            roomName={quiz?.quizCode || ""}
+            setShowStatistics={setShowStatistics}
+            currentQuestion={currentQuestion}
+            endQuiz={endQuiz}
+            participants={participants || []}
+          />
+        </div>
+      ) : isWaiting ? (
+        <div className=" mt-6 max-w-md mx-auto bg-white bg-opacity-5 backdrop-blur-md p-8 rounded-2xl shadow-2xl">
+          <h2 className="text-3xl font-bold mb-6">Quiz Starting Soon :</h2>
+          <div className="text-center">
+            <div className="inline-block bg-white bg-opacity-10 backdrop-blur-sm px-6 py-3 rounded-xl text-2xl font-medium">
+              {formatWaitingTime(timeLeft)}
             </div>
-          ) : (
-            <div className="max-w-md mx-auto bg-white bg-opacity-5 backdrop-blur-md p-8 rounded-2xl shadow-2xl">
-              <h2 className="text-3xl font-bold mb-6">Quiz Starting Soon</h2>
-              <div className="text-center">
-                <div className="inline-block bg-white bg-opacity-10 backdrop-blur-sm px-6 py-3 rounded-xl text-2xl font-medium">
-                  {formatWaitingTime(timeLeft)}
-                </div>
-              </div>
-              {isHost && (
-                <button
-                  onClick={handleQuickStart}
-                  className="mt-8 bg-gradient-to-r from-blue-800 to-blue-600 px-6 py-3 rounded-xl font-semibold hover:from-blue-700 hover:to-blue-500 transition-all duration-200 shadow-lg w-full"
-                >
-                  Start Now
-                </button>
-              )}
-            </div>
+          </div>
+          {isHost && (
+            <button
+              onClick={handleQuickStart}
+              className="mt-8 bg-gradient-to-r from-blue-800 to-blue-600 px-6 py-3 rounded-xl font-semibold hover:from-blue-700 hover:to-blue-500 transition-all duration-200 shadow-lg w-full"
+            >
+              Start Now
+            </button>
           )}
         </div>
-      ) : isQuestionCountingDown ? (
+      ) : isQuestionCountdown ? (
         <div className="flex flex-col items-center justify-center py-16 text-white">
-          <h2 className="text-3xl font-bold mb-6">Next Question</h2>
+          <h2 className="text-4xl font-bold mb-6">
+            {nextQuestionIndex === 0
+              ? "Ready?"
+              : `Next Question: ${nextQuestionIndex + 1}`}
+          </h2>
           <div className="relative">
             <div className="w-24 h-24 bg-white bg-opacity-10 backdrop-blur-sm rounded-full flex items-center justify-center">
-              <span className="text-5xl font-bold">
-                {questionCountdownValue}
-              </span>
+              <span className="text-5xl font-bold">{countdownValue}</span>
             </div>
             <div className="absolute inset-0 rounded-full border-4 border-blue-400 opacity-30 animate-ping"></div>
           </div>
@@ -590,17 +579,6 @@ const Quiz: React.FC<QuizProps> = ({ quizCode }) => {
             )}
           </div>
         </div>
-      ) : showStatistics ? (
-        <div className="h-full w-full">
-          <Statistics
-            isHost={isHost}
-            quizName={quiz?.quizName || ""}
-            roomName={quiz?.quizCode || ""}
-            setShowStatistics={setShowStatistics}
-            currentQuestion={currentQuestion}
-            endQuiz={endQuiz}
-          />
-        </div>
       ) : (
         <div className="h-full flex flex-col">
           {/* Top Bar with Timer - Only shown for non-host */}
@@ -608,7 +586,7 @@ const Quiz: React.FC<QuizProps> = ({ quizCode }) => {
             <div className="bg-slate-800 bg-opacity-70 backdrop-blur-sm px-4 py-3 flex justify-between items-center">
               <div className="flex items-center gap-3">
                 <div className="bg-blue-900 rounded-lg px-2 py-1 text-xs font-medium text-white">
-                  Q{currentIndex + 1}
+                  Question{currentIndex + 1}
                 </div>
                 <h2 className="text-lg font-medium text-white truncate">
                   {quiz?.quizName}
@@ -744,7 +722,7 @@ const Quiz: React.FC<QuizProps> = ({ quizCode }) => {
               </div>
             ) : (
               <div
-                className={`bg-white rounded-xl shadow-2xl p-5 h-full relative overflow-hidden`}
+                className={`bg-white rounded-xl shadow-2xl p-5 h-full relative overflow-y-auto`}
               >
                 {/* Alarm overlay for last 5 seconds when not submitted */}
                 {timeLeft <= 5 && !currentQuestionSubmitted && (

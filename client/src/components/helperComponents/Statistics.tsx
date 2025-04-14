@@ -21,6 +21,7 @@ interface StatisticsProps {
   };
 
   endQuiz: boolean;
+  participants: any[]; // Add the correct type for participants if available
 }
 
 const Statistics: React.FC<StatisticsProps> = ({
@@ -30,6 +31,7 @@ const Statistics: React.FC<StatisticsProps> = ({
   setShowStatistics,
   currentQuestion,
   endQuiz,
+  participants,
 }) => {
   const socket = useSocket();
   const [responseData, setResponseData] = useState<any>(null);
@@ -478,7 +480,8 @@ const Statistics: React.FC<StatisticsProps> = ({
                             </span>{" "}
                             {responseData.length > 0
                               ? Math.round(
-                                  (getTotalResponses() / responseData.length) *
+                                  (getTotalResponses() /
+                                    (participants.length - 1)) *
                                     100
                                 )
                               : 0}
@@ -488,7 +491,7 @@ const Statistics: React.FC<StatisticsProps> = ({
                             <span className="font-medium">
                               Total responses:
                             </span>{" "}
-                            {getTotalResponses()} / {responseData.length}
+                            {getTotalResponses()} / {participants.length - 1}
                           </div>
                         </div>
                       </div>
@@ -620,7 +623,7 @@ const Statistics: React.FC<StatisticsProps> = ({
                                 </span>{" "}
                                 <span className="text-gray-600">
                                   {getTotalResponses()} out of{" "}
-                                  {responseData.length} participants
+                                  {participants.length - 1} participants
                                 </span>
                               </div>
                               <div>
@@ -726,13 +729,15 @@ const Statistics: React.FC<StatisticsProps> = ({
                           </div>
                           <div className="text-3xl font-bold text-white">
                             {Math.round(
-                              (getTotalResponses() / responseData.length) * 100
+                              (getTotalResponses() /
+                                (participants.length - 1)) *
+                                100
                             )}
                             %
                           </div>
                           <div className="mt-2 text-xs text-indigo-100">
-                            {getTotalResponses()} out of {responseData.length}{" "}
-                            participants answered
+                            {getTotalResponses()} out of{" "}
+                            {participants.length - 1} participants answered
                           </div>
                         </div>
 

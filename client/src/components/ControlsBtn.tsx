@@ -43,19 +43,27 @@ const VideoControls: React.FC<VideoControlsProps> = ({
   const [isVideoMuted, setIsVideoMuted] = useState<boolean>(true); // Track video mute state
   const [isScreenSharing, setIsScreenSharing] = useState<boolean>(false); // Track screen sharing state
   const [msgCount, setMsgCount] = useState<number>(0); // Track message count
+  const [isChatOpen, setIsChatOpen] = useState<boolean>(false); // Track chat visibility state
 
   const socket = useSocket();
 
-    useEffect(() => {
-      if (!socket) return;
-  
-      // Listen for new messages
-      socket.on("newMsg", ()=>setMsgCount((prevCount) => prevCount + 1));
-  
-      return () => {
-        socket.off("newMsg", ()=>setMsgCount((prevCount) => prevCount + 1));
-      };
-    }, [socket]);
+  useEffect(() => {
+    if (!socket) return;
+    
+    // Define the callback function once
+    const handleNewMessage = () => {
+      // Only increment the count if chat is closed
+      if (!isChatOpen) {
+        setMsgCount((prevCount) => prevCount + 1);
+      }
+    }
+    
+    socket.on("newMsg", handleNewMessage);
+    
+    return () => {
+      socket.off("newMsg", handleNewMessage);
+    };
+  }, [socket, isChatOpen]);
 
   const handleMediaToggle = (userId: string, isMuted: boolean, media: string) => {
     // Send a message to the other user (via socket.io or signaling mechanism)
@@ -87,6 +95,8 @@ const VideoControls: React.FC<VideoControlsProps> = ({
   };
 
   const leaveMeeting = () => {
+    sessionStorage.removeItem("session");
+    localStorage.removeItem("userId");
     producerClose();
   };
 
@@ -102,9 +112,20 @@ const VideoControls: React.FC<VideoControlsProps> = ({
     setIsScreenSharing(false);
   };
 
+  const handleToggleChat = ()=>{
+    setIsChatOpen(!isChatOpen);
+    toggleChat();
+    
+    // Optional: Reset message count when opening chat
+    if (!isChatOpen) {
+      setMsgCount(0);
+    }
+  }
+
   // Determine if screen sharing should be shown
   // Hide screen sharing if it's a quiz and the user is not a host
   const showScreenSharing = !(isQuiz && !isHost);
+  
 
   return (
     <div className="px-4 flex justify-center space-x-6">
@@ -138,9 +159,15 @@ const VideoControls: React.FC<VideoControlsProps> = ({
 
       {/* Chat Button */}
       <button
-        onClick={toggleChat}
-        className="bg-gray-700 p-4 rounded-full text-white"
+        onClick={handleToggleChat}
+        className="bg-gray-700 p-4 rounded-full text-white relative"
       >
+        {/* Only show message count when chat is closed and there are messages */}
+        {!isChatOpen && msgCount > 0 && (
+          <span className="absolute top-0 right-0 bg-red-600 text-white rounded-full px-2 text-xs">
+            {msgCount}
+          </span>
+        )}
         <FaComments />
       </button>
 

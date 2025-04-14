@@ -34,13 +34,13 @@ const QuizCompletion: React.FC<QuizCompletionProps> = ({ handleReview , passingP
     const fetchData = async () => {
       try {
         setIsLoading(true);
-        const sessionId = localStorage.getItem("sessionId");
+        const userId = localStorage.getItem("userId");
         
-        if (!sessionId) {
+        if (!userId) {
           throw new Error("Session ID not found");
         }
         
-        const result = await fetchUserResponses(sessionId,quizName );
+        const result = await fetchUserResponses(userId,quizName );
         
         if (!result) {
           throw new Error("No responses found");

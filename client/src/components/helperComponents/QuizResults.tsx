@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { fetchRecentQuizResponses } from "@/controllers/response";
-import { ApiResponse } from "@/controllers/response";
+import { useSocket } from "@/context/SocketProvider";
+import { fetchQuestions } from "@/controllers/questions";
 import {
   Medal,
   Award,
@@ -36,6 +37,25 @@ export interface QuizResult {
   userEmail?: string;
 }
 
+interface Question {
+  questionId: string;
+  currentQn: {
+    heading?: String;
+    paras?: [String];
+  };
+  options?: [String];
+  correctAns: string | string[]; // Can be string or array
+  type: string;
+}
+
+interface Participant {
+  socketId: string;
+  userId: string;
+  name: string;
+  email: string;
+  isHost: boolean;
+}
+
 interface QuizResultsProps {
   quizName: string;
   quizCode?: string;
@@ -47,6 +67,7 @@ const QuizResults: React.FC<QuizResultsProps> = ({
   quizCode,
   quizId,
 }) => {
+  const socket = useSocket();
   const [allResults, setAllResults] = useState<QuizResult[] | null>(null);
   const [results, setResults] = useState<QuizResult[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -58,6 +79,18 @@ const QuizResults: React.FC<QuizResultsProps> = ({
   const [availableQuizCodes, setAvailableQuizCodes] = useState<string[]>([]);
   const [selectedQuizCode, setSelectedQuizCode] = useState<string>("");
   const [expandedQuestion, setExpandedQuestion] = useState<number | null>(null);
+  const [questions, setQuestions] = useState<any[]>([]);
+  
+  // Separate useEffect for data fetching
+  useEffect(() => {
+    const getQuestions = async () => {
+      const fetchedQuestions = await fetchQuestions(quizName);
+      // console.log("questions", fetchedQuestions);
+      setQuestions(fetchedQuestions);
+    };
+
+    getQuestions();
+  }, [quizName, quizCode]);
 
   useEffect(() => {
     const getResults = async () => {
@@ -870,6 +903,7 @@ const QuizResults: React.FC<QuizResultsProps> = ({
       </div>
 
       {/* Success Rate by Question section */}
+      {/* Success Rate by Question section */}
       <div className="mt-8 bg-gray-50 p-4 rounded-lg">
         <h3 className="text-xl font-semibold mb-4 text-gray-700 flex items-center">
           <CheckCircle size={20} className="mr-2 text-green-500" />
@@ -881,15 +915,49 @@ const QuizResults: React.FC<QuizResultsProps> = ({
               <tr>
                 <th className="py-3 px-4 text-left">Question #</th>
                 <th className="py-3 px-4 text-center">Success Rate</th>
-                <th className="py-3 px-4 text-center">Correct / Total</th>
+                <th className="py-3 px-4 text-center">Correct / Attempted</th>
                 <th className="py-3 px-4 text-center">Participants</th>
               </tr>
             </thead>
             <tbody>
               {Array.from({ length: results[0]?.totalQuestions || 0 }).map(
                 (_, qIndex) => {
-                  const { correct, total, rate, participantStatuses } =
-                    getQuestionSuccessRate(qIndex);
+                  // Get participants who attempted this question
+                  const participantAttempts = results.filter(
+                    (participant :any) =>
+                      participant.responses &&
+                      participant.responses[qIndex] !== undefined
+                  );
+
+                  // Calculate participant statuses including only those who attempted
+                  const participantStatuses = participantAttempts.map(
+                    (participant : any) => {
+                      const response = participant.responses?.[qIndex];
+                      const isCorrect = response?.isCorrect || false;
+                      return {
+                        name: participant.username || "Anonymous",
+                        email: participant.userEmail || "N/A",
+                        isCorrect,
+                      };
+                    }
+                  );
+
+                  const totalAttempts = participantStatuses.length;
+                  const correctCount = participantStatuses.filter(
+                    (status) => status.isCorrect
+                  ).length;
+                  const incorrectCount = totalAttempts - correctCount;
+                  const rate =
+                    totalAttempts > 0
+                      ? (correctCount / totalAttempts) * 100
+                      : 0;
+
+                  // Get question text from questions array if available
+                  const questionText =
+                    questions[qIndex]?.currentQn?.heading ||
+                    questions[qIndex]?.currentQn?.paras?.[0] ||
+                    "Question details not available";
+
                   return (
                     <React.Fragment key={qIndex}>
                       <tr
@@ -920,7 +988,12 @@ const QuizResults: React.FC<QuizResultsProps> = ({
                           </div>
                         </td>
                         <td className="py-3 px-4 border-b border-gray-100 text-center">
-                          {correct} / {total}
+                          {correctCount} / {totalAttempts}
+                          {totalAttempts < results.length && (
+                            <span className="text-xs text-gray-500 ml-1">
+                              (Skipped: {results.length - totalAttempts})
+                            </span>
+                          )}
                         </td>
                         <td className="py-3 px-4 border-b border-gray-100 text-center">
                           <button
@@ -946,9 +1019,96 @@ const QuizResults: React.FC<QuizResultsProps> = ({
                         <tr>
                           <td colSpan={4} className="bg-indigo-50 px-4 py-3">
                             <div className="text-sm p-2">
-                              <h4 className="font-medium text-indigo-700 mb-2">
-                                Participant Status
+                              <h4 className="font-medium text-indigo-700 mb-3">
+                                {questionText}
                               </h4>
+
+                              {/* Thin Correct/Incorrect Bar Chart with counts on top */}
+                              <div className="mb-6 bg-white p-4 rounded-lg shadow-sm">
+                                <div className="mb-2 flex justify-between">
+                                  <div className="text-sm font-medium text-gray-700">
+                                    Question Performance
+                                  </div>
+                                </div>
+
+                                <div className="relative pt-6 mb-4">
+                                  {/* Count labels above bar */}
+                                  <div className="absolute top-0 left-0 w-full flex text-xs font-semibold">
+                                    {correctCount > 0 && (
+                                      <div
+                                        className="text-center"
+                                        style={{
+                                          width: `${
+                                            (correctCount / totalAttempts) * 100
+                                          }%`,
+                                        }}
+                                      >
+                                        {correctCount}
+                                      </div>
+                                    )}
+                                    {incorrectCount > 0 && (
+                                      <div
+                                        className="text-center"
+                                        style={{
+                                          width: `${
+                                            (incorrectCount / totalAttempts) *
+                                            100
+                                          }%`,
+                                        }}
+                                      >
+                                        {incorrectCount}
+                                      </div>
+                                    )}
+                                  </div>
+
+                                  {/* Thin bar chart */}
+                                  <div className="flex h-4 w-full rounded-md overflow-hidden">
+                                    {correctCount > 0 && (
+                                      <div
+                                        className="bg-green-500"
+                                        style={{
+                                          width: `${
+                                            (correctCount / totalAttempts) * 100
+                                          }%`,
+                                        }}
+                                      ></div>
+                                    )}
+                                    {incorrectCount > 0 && (
+                                      <div
+                                        className="bg-red-500"
+                                        style={{
+                                          width: `${
+                                            (incorrectCount / totalAttempts) *
+                                            100
+                                          }%`,
+                                        }}
+                                      ></div>
+                                    )}
+                                  </div>
+
+                                  {/* Legend */}
+                                  <div className="flex justify-center space-x-8 mt-2">
+                                    <div className="flex items-center">
+                                      <div className="w-3 h-3 bg-green-500 rounded-sm mr-1"></div>
+                                      <span className="text-xs">Correct</span>
+                                    </div>
+                                    <div className="flex items-center">
+                                      <div className="w-3 h-3 bg-red-500 rounded-sm mr-1"></div>
+                                      <span className="text-xs">Incorrect</span>
+                                    </div>
+                                    {results.length - totalAttempts > 0 && (
+                                      <div className="flex items-center">
+                                        <div className="w-3 h-3 bg-gray-300 rounded-sm mr-1"></div>
+                                        <span className="text-xs">
+                                          Not Attempted (
+                                          {results.length - totalAttempts})
+                                        </span>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+
                               <div className="overflow-x-auto max-h-80">
                                 <table className="min-w-full divide-y divide-gray-200">
                                   <thead className="bg-indigo-100">
@@ -965,36 +1125,53 @@ const QuizResults: React.FC<QuizResultsProps> = ({
                                     </tr>
                                   </thead>
                                   <tbody className="bg-white divide-y divide-gray-200">
-                                    {participantStatuses.map(
-                                      (participant, pIndex) => (
+                                    {/* Show all participants including those who skipped */}
+                                    {results.map((participant : any, pIndex) => {
+                                      const response =
+                                        participant.responses?.[qIndex];
+                                      const attempted = response !== undefined;
+                                      const isCorrect =
+                                        response?.isCorrect || false;
+
+                                      return (
                                         <tr
                                           key={pIndex}
                                           className="hover:bg-gray-50"
                                         >
                                           <td className="px-4 py-2 whitespace-nowrap">
                                             <div className="text-sm font-medium text-gray-900">
-                                              {participant.name}
+                                              {participant.username ||
+                                                "Anonymous"}
                                             </div>
                                           </td>
                                           <td className="px-4 py-2 whitespace-nowrap">
                                             <div className="text-sm text-gray-900">
-                                              {participant.email}
+                                              {participant.userEmail || "N/A"}
                                             </div>
                                           </td>
                                           <td className="px-4 py-2 whitespace-nowrap text-center">
-                                            {participant.isCorrect ? (
+                                            {!attempted ? (
+                                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+                                                Not Attempted
+                                              </span>
+                                            ) : isCorrect ? (
                                               <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                                <Check
+                                                  size={12}
+                                                  className="mr-1"
+                                                />
                                                 Correct
                                               </span>
                                             ) : (
                                               <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                                <X size={12} className="mr-1" />
                                                 Incorrect
                                               </span>
                                             )}
                                           </td>
                                         </tr>
-                                      )
-                                    )}
+                                      );
+                                    })}
                                   </tbody>
                                 </table>
                               </div>

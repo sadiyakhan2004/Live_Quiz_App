@@ -56,17 +56,17 @@ const QuizComponent: React.FC<QuizPageProps> = ({ type, isQuiz, questions, revie
   const [responses, setResponses] = useState<any>([]);
   const [answeredQuestions, setAnsweredQuestions] = useState<string[]>([]);
 
-  const [sessionId, setSessionId] = useState<string>("");
+  const [userId, setUserId] = useState<string>("");
 
   useEffect(() => {
-    let storedSessionId = localStorage.getItem("sessionId");
+    let storedUserId = localStorage.getItem("userId");
 
-    if (!storedSessionId) {
-      storedSessionId = uuidv4(); // Create new session ID
-      localStorage.setItem("sessionId", storedSessionId);
+    if (!storedUserId) {
+      storedUserId = uuidv4(); // Create new session ID
+      localStorage.setItem("userId", storedUserId);
     }
 
-    setSessionId(storedSessionId);
+    setUserId(storedUserId);
   }, []);
 
   // function to track answered questions
@@ -110,10 +110,10 @@ const QuizComponent: React.FC<QuizPageProps> = ({ type, isQuiz, questions, revie
       return;
     }
 
-    const submittedResponse = await submitUserResponses(sessionId, quizName);
+    const submittedResponse = await submitUserResponses(userId, quizName);
     console.log(submittedResponse);
     const userResponses: ApiResponse | null = await fetchUserResponses(
-      sessionId, quizName
+      userId, quizName
     );
 
     // Ensure responses is an array before setting it
