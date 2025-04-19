@@ -1,11 +1,11 @@
 "use client";
-import { useState, useEffect, ReactNode } from "react";
+import { useState, useEffect, ReactNode, useRef } from "react";
 import { useAppDispatch, useAppSelector } from "@/hooks/redux";
 import { addQuestion } from "@/store/features/questionSlice";
 import {
   updateResponse,
   isAnswerCorrect,
-  localResponses
+  localResponses,
 } from "@/controllers/response";
 import { v4 as uuidv4 } from "uuid";
 import Input from "../ui/Input";
@@ -23,11 +23,8 @@ import {
   useSensors,
   DragEndEvent,
 } from "@dnd-kit/core";
-import {
-  restrictToWindowEdges,
-  restrictToParentElement,
-} from "@dnd-kit/modifiers";
-import { CSS } from "@dnd-kit/utilities";
+import { restrictToWindowEdges } from "@dnd-kit/modifiers";
+import type { Modifier } from "@dnd-kit/core";
 import { useDraggable, useDroppable } from "@dnd-kit/core";
 
 interface Question {
@@ -71,6 +68,7 @@ interface DroppableFieldProps {
   children: ReactNode;
   minWidth?: number;
 }
+
 // Draggable Option Component
 const DraggableOption: React.FC<DraggableOptionProps> = ({
   option,
@@ -431,7 +429,7 @@ const DragDropQuizComponent: React.FC<DragDropQuizProps> = ({
         : userAnswer || "";
 
       return (
-        <span className="text-lg font-semibold text-gray-600 py-4">
+        <span className="text-lg font-semibold text-gray-600 dark:text-gray-200 py-4">
           <span className="flex-col items-end">
             {text.split("{field}").map((part, index) => (
               <span key={index} className="inline-flex items-center">
@@ -465,7 +463,7 @@ const DragDropQuizComponent: React.FC<DragDropQuizProps> = ({
     }
 
     return (
-      <span className="text-lg font-semibold text-gray-600 py-4">
+      <span className="text-lg font-semibold text-gray-600 dark:text-gray-300 py-4">
         <span className="flex-col items-end">
           {parts.map((part, index) => (
             <span key={index} className="inline-flex items-center">
@@ -591,6 +589,35 @@ const DragDropQuizComponent: React.FC<DragDropQuizProps> = ({
   };
 
   const allOptions = [...options];
+ const restrictToContainer = (containerRef: React.RefObject<HTMLElement>): Modifier => {
+    return ({ transform, activeNodeRect }) => {
+      if (!activeNodeRect || !containerRef.current) return transform;
+  
+      const containerRect = containerRef.current.getBoundingClientRect();
+  
+      const nodeWidth = activeNodeRect.width;
+      const nodeHeight = activeNodeRect.height;
+  
+      const minX = containerRect.left;
+      const maxX = containerRect.right - nodeWidth;
+      const minY = containerRect.top;
+      const maxY = containerRect.bottom - nodeHeight;
+  
+      const newX = activeNodeRect.left + transform.x;
+      const newY = activeNodeRect.top + transform.y;
+  
+      const restrictedX = Math.max(minX - activeNodeRect.left, Math.min(transform.x, maxX - activeNodeRect.left));
+      const restrictedY = Math.max(minY - activeNodeRect.top, Math.min(transform.y, maxY - activeNodeRect.top));
+  
+      return {
+        ...transform,
+        x: restrictedX,
+        y: restrictedY,
+      };
+    };
+  };
+
+  const dragAreaRef = useRef<HTMLDivElement>(null);
 
   if (isQuizMode) {
     return (
@@ -599,68 +626,69 @@ const DragDropQuizComponent: React.FC<DragDropQuizProps> = ({
         collisionDetection={closestCenter}
         onDragEnd={handleDragEnd}
         onDragStart={handleDragStart}
-        modifiers={[restrictToWindowEdges]}
+        modifiers={[restrictToContainer(dragAreaRef)]}
       >
-        <div className={`w-full max-w-3xl mx-auto mt-8 relative h-full`}>
-          <div className="bg-gray-100 p-6 rounded-md shadow-md mx-auto space-y-4  ">
-            <div className="mb-6 w-full ">
-              {question?.heading && (
-                <h3 className="text-2xl text-gray-800">
-                  {renderWithField(question.heading)}
-                </h3>
-              )}
-
-              {question?.paras?.map((para, i) => (
-                <p key={i} className="text-gray-600 mt-2">
-                  {renderWithField(para)}
-                </p>
-              ))}
-            </div>
-            <div className="flex flex-wrap gap-4 mt-12 pt-4 rounded-xl">
-              {allOptions.map((option, index) => {
-                const isAvailable = availableOptions.includes(option);
-
-                // Create drop slots for each option
-                return (
-                  <OptionDropSlot
-                    key={index}
-                    optionId={option}
-                    isVisible={isAvailable}
-                  >
-                    {isAvailable ? (
-                      <DraggableOption
-                        option={option}
-                        isDisabled={reviewMode}
-                        isHighlighted={
-                          option === highlightedOption && isDraggingFromField
-                        }
-                      />
-                    ) : (
-                      <div
-                        className={`inline-flex items-center justify-center px-4 py-2 rounded-md min-h-[40px] border-2 
-            ${
-              option === highlightedOption
-                ? " boder border-blue-200"
-                : "bg-gray-100"
-            }
-            transition-all duration-150`}
-                        style={{
-                          minWidth: `${Math.max(option.length * 15, 80)}px`,
-                          maxWidth: "200px",
-                          width: "auto",
-                        }}
-                      >
-                        {option === highlightedOption ? (
-                          <span className="border"></span>
-                        ) : (
-                          <span className="text-gray-400 text-xs bg-gray-200"></span>
-                        )}
-                      </div>
-                    )}
-                  </OptionDropSlot>
-                );
-              })}
-            </div>
+        <div
+          ref={dragAreaRef}
+          className="bg-gray-100 dark:bg-gray-900 m-2 min-h-[400px] h-full p-8 rounded-md shadow-md space-y-2"
+        >
+          <div className="mb-6 w-full">
+            {question?.heading && (
+              <h4 className="text-xl text-bold text-gray-700 dark:text-gray-200">
+                {renderWithField(question.heading)}
+              </h4>
+            )}
+    
+            {question?.paras?.map((para, i) => (
+              <h4 key={i} className="text-lg text-gray-600 dark:text-gray-200 mt-2">
+                {renderWithField(para)}
+              </h4>
+            ))}
+          </div>
+          <div className="flex flex-wrap gap-4 mt-24 pt-4 rounded-xl">
+            {allOptions.map((option, index) => {
+              const isAvailable = availableOptions.includes(option);
+    
+              // Create drop slots for each option
+              return (
+                <OptionDropSlot
+                  key={index}
+                  optionId={option}
+                  isVisible={isAvailable}
+                >
+                  {isAvailable ? (
+                    <DraggableOption
+                      option={option}
+                      isDisabled={reviewMode}
+                      isHighlighted={
+                        option === highlightedOption && isDraggingFromField
+                      }
+                    />
+                  ) : (
+                    <div
+                      className={`inline-flex items-center justify-center px-4 py-2 rounded-md min-h-[40px] border-2
+                      ${
+                        option === highlightedOption
+                          ? "border-blue-400 dark:border-blue-400 bg-blue-50 dark:bg-blue-900/30"
+                          : "border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800"
+                      }
+                      transition-all duration-150`}
+                      style={{
+                        minWidth: `${Math.max(option.length * 15, 80)}px`,
+                        maxWidth: "200px",
+                        width: "auto",
+                      }}
+                    >
+                      {option === highlightedOption ? (
+                        <span></span>
+                      ) : (
+                        <span ></span>
+                      )}
+                    </div>
+                  )}
+                </OptionDropSlot>
+              );
+            })}
           </div>
         </div>
       </DndContext>
@@ -669,43 +697,50 @@ const DragDropQuizComponent: React.FC<DragDropQuizProps> = ({
 
   // Form Creation Mode
   return (
-    <div className="bg-white/80 backdrop-blur-lg p-8 rounded-2xl shadow-xl w-full max-w-3xl border border-gray-200">
-      <p className="mb-4">
-        {" "}
+    <div className="bg-white dark:bg-slate-900 p-8 rounded-lg shadow-lg w-full max-w-3xl border border-gray-200 dark:border-slate-800 transition-colors duration-300">
+      <p className="mb-4 text-amber-500 dark:text-amber-400 font-medium italic">
         Use "{`{field}`}" to mark the drop option in the question.
       </p>
-      <div className=" px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-300">
+
+      {/* Question Section */}
+      <div className="px-6 py-5 bg-gray-50 dark:bg-slate-800 border-l-4 border-blue-600 rounded-lg mb-6 transition-colors duration-300 shadow-md ">
         {/* Heading Input */}
         <div className="mb-4">
-          <label className="block font-semibold text-gray-800 text-lg">
+          <label className="block font-semibold text-blue-700 dark:text-blue-400 text-base mb-2">
             Write a Question
           </label>
           <Input
             type="text"
             value={newQuestion.heading}
             onChange={handleHeadingChange}
-            className="w-full px-3 py-2 border rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+            className="w-full px-4 py-2 rounded-md focus:ring-blue-500 focus:border-blue-500 dark:focus:border-blue-500 bg-white dark:bg-slate-700 text-gray-800 dark:text-white transition-all duration-300"
             label="Heading"
+            focusedLabelClassName="text-blue-700 dark:text-blue-400"
+            backgroundColor="bg-white dark:bg-slate-700"
+            labelClassName="bg-white dark:bg-transparent"
           />
         </div>
 
         {/* Paragraphs Input */}
         <div className="mb-6">
           {newQuestion.paras.map((para, index) => (
-            <div key={index} className="flex items-center gap-2 mb-2">
+            <div key={index} className="flex items-center gap-2 mb-3">
               <Textarea
                 value={para}
                 onChange={(e) => handleParaChange(index, e.target.value)}
-                className="flex-1 w-full px-6 py-2 border rounded-lg focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-300"
+                className="flex-1 w-full px-4 py-2 border border-gray-300 dark:border-slate-700 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:focus:border-blue-500 bg-white dark:bg-slate-700 text-gray-800 dark:text-white transition-all duration-300"
                 label="Content"
                 rows={1}
+                focusedLabelClassName="text-blue-700 dark:text-blue-400"
+                textareaClassName="bg-white dark:bg-slate-700 text-gray-800 dark:text-white"
+                labelClassName="bg-white dark:bg-transparent"
               />
               {index > 0 && (
                 <Tooltip title="Remove">
                   <Button
                     variant="outline"
                     onClick={() => removeParagraph(index)}
-                    className="text-red-500 border border-red-500 rounded-full flex-shrink-0"
+                    className="text-red-600 dark:text-red-400 border border-red-400 dark:border-red-500/50 hover:bg-red-50 dark:hover:bg-red-500/20 rounded-md flex-shrink-0 transition-colors duration-300"
                   >
                     <Minus />
                   </Button>
@@ -717,40 +752,45 @@ const DragDropQuizComponent: React.FC<DragDropQuizProps> = ({
             <Button
               variant="outline"
               onClick={addParagraph}
-              className="text-green-600 border border-green-600 rounded-full flex items-center gap-1 mt-2 flex-shrink-0"
+              className="text-green-600 dark:text-green-400 border border-green-500 dark:border-green-500/50 hover:bg-green-50 dark:hover:bg-green-500/20 rounded-md flex items-center gap-1 mt-2 transition-colors duration-300"
             >
               <Plus />
             </Button>
           </Tooltip>
-        </div>
 
-        <ErrorMessage
-          show={errors.questionContent && showErrors}
-          message="At least one field must be filled"
-        />
-        <ErrorMessage
-          show={errors.fieldMarker && !errors.questionContent && showErrors}
-          message="Question must include at least one {field} marker"
-        />
+          <ErrorMessage
+            show={errors.questionContent && showErrors}
+            message="At least one field must be filled"
+          />
+          <ErrorMessage
+            show={errors.fieldMarker && !errors.questionContent && showErrors}
+            message="Question must include at least one {field} marker"
+          />
+        </div>
       </div>
 
-      <div className="my-6 w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-300">
-        <label className="block font-semibold text-gray-800 text-lg mb-2">
+      {/* Options Input */}
+      <div className="mb-6 w-full px-6 py-5 bg-gray-50 dark:bg-slate-800 border-l-4 border-amber-400 rounded-lg transition-colors duration-300 shadow-md">
+        <label className="block font-semibold text-amber-600 dark:text-amber-300 text-base mb-3">
           Specify Options
         </label>
         {currentOptions.map((option, index) => (
-          <div key={index} className="mb-2 flex items-center space-x-2">
-            <Input
-              type="text"
-              value={option}
-              onChange={(e) => {
-                const updatedOptions = [...currentOptions];
-                updatedOptions[index] = e.target.value;
-                setCurrentOptions(updatedOptions);
-              }}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-              label={`Option ${index + 1}`}
-            />
+          <div key={index} className="flex items-center gap-2 mb-3 w-full">
+            <div className="flex-1 relative w-full">
+              <Input
+                type="text"
+                value={option}
+                onChange={(e) => {
+                  const updatedOptions = [...currentOptions];
+                  updatedOptions[index] = e.target.value;
+                  setCurrentOptions(updatedOptions);
+                }}
+                className="w-full px-4 py-2 border rounded-lg bg-white dark:bg-slate-700 text-gray-800 dark:text-white focus:ring-amber-200 focus:border-amber-300 transition-all duration-300"
+                label={`Option ${index + 1}`}
+                backgroundColor="bg-white dark:bg-slate-700"
+                focusedLabelClassName="text-amber-400 dark:text-amber-400 bg-white dark:bg-transparent"
+              />
+            </div>
             {index > 0 && (
               <Tooltip title="Remove">
                 <Button
@@ -760,7 +800,7 @@ const DragDropQuizComponent: React.FC<DragDropQuizProps> = ({
                       currentOptions.filter((_, i) => i !== index)
                     )
                   }
-                  className="text-red-500 border border-red-500 rounded-full flex-shrink-0"
+                  className="text-red-600 dark:text-red-400 border border-red-400 dark:border-red-500/50 hover:bg-red-50 dark:hover:bg-red-500/20 rounded-md flex-shrink-0 transition-colors duration-300"
                 >
                   <Minus size={20} />
                 </Button>
@@ -768,12 +808,11 @@ const DragDropQuizComponent: React.FC<DragDropQuizProps> = ({
             )}
           </div>
         ))}
-
         <Tooltip title="Add Option" position="top" className="relative">
           <Button
             variant="outline"
             onClick={() => setCurrentOptions([...currentOptions, ""])}
-            className="text-green-600 border border-green-600 rounded-full mt-2 flex-shrink-0"
+            className="text-green-600 dark:text-green-400 border border-green-500 dark:border-green-500/50 hover:bg-green-50 dark:hover:bg-green-500/20 rounded-md flex items-center gap-1 mt-2 transition-colors duration-300"
           >
             <Plus size={20} />
           </Button>
@@ -786,13 +825,18 @@ const DragDropQuizComponent: React.FC<DragDropQuizProps> = ({
       </div>
 
       {/* Correct Answer Input */}
-      <div className="my-6 w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-300">
+      <div className="mb-6 w-full px-6 py-5 bg-gray-50 dark:bg-slate-800 border-l-4 border-green-500 rounded-lg transition-colors duration-300 shadow-md">
+        <label className="block font-semibold text-green-700 dark:text-green-400 text-base mb-3">
+          Specify the Correct Answers
+        </label>
         <Input
-          label="Specify the Correct Answers"
           type="text"
           value={currentCorrectAns}
           onChange={(e) => setCurrentCorrectAns(e.target.value)}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+          className="w-full px-4 py-2 border rounded-md focus:ring-green-500 focus:border-green-500 dark:focus:border-green-500 bg-white dark:bg-slate-700 text-gray-800 dark:text-white transition-all duration-300"
+          label="Correct Answer"
+          focusedLabelClassName="text-green-700 dark:text-green-400 bg-white dark:bg-transparent"
+          backgroundColor="bg-white dark:bg-slate-700"
         />
         <ErrorMessage
           show={errors.correctAns && showErrors}
@@ -805,10 +849,10 @@ const DragDropQuizComponent: React.FC<DragDropQuizProps> = ({
       </div>
 
       {/* Submit Button */}
-      <div className="flex justify-center">
+      <div className="flex justify-end">
         <Button
           onClick={handleSaveQuestion}
-          className="px-8 py-3 text-sm bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-semibold rounded-lg hover:opacity-90 transition-all shadow-lg flex-shrink-0"
+          className="px-8 py-3 text-sm bg-blue-600 hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-700 text-white font-medium rounded-md transition-colors duration-300 shadow-md hover:shadow-lg transform hover:-translate-y-0.5 active:translate-y-0"
         >
           Add Question
         </Button>

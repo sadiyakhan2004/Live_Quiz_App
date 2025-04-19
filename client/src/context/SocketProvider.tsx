@@ -21,7 +21,13 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
   const [socket, setSocket] = useState<Socket | null>(null);
 
   useEffect(() => {
-    const connection = io("http://localhost:8000/mediasoup");
+    const connection = io("http://localhost:8000/mediasoup", {
+      reconnection: true,             // optional, default is true
+      reconnectionAttempts: 5,       // number of attempts before giving up
+      reconnectionDelay: 2000,       // wait 2 seconds between attempts
+      timeout: 5000,                 // time to wait for connection
+    });
+    
     setSocket(connection);
 
     return () => {

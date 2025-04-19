@@ -5,7 +5,7 @@ import { addQuestion } from "@/store/features/questionSlice";
 import {
   updateResponse,
   isAnswerCorrect,
-  localResponses
+  localResponses,
 } from "@/controllers/response";
 import { v4 as uuidv4 } from "uuid";
 import Input from "../ui/Input";
@@ -43,7 +43,6 @@ interface QuizProps {
   Qn_id?: string;
   reviewMode?: boolean;
   onAnswered?: () => void;
-  
 }
 
 const RadioQuizComponent: React.FC<QuizProps> = ({
@@ -53,9 +52,7 @@ const RadioQuizComponent: React.FC<QuizProps> = ({
   Qn_id,
   reviewMode,
   onAnswered,
- 
 }) => {
-
   const dispatch = useAppDispatch();
 
   // State for form creation
@@ -220,8 +217,8 @@ const RadioQuizComponent: React.FC<QuizProps> = ({
       // Check if this option was selected by user (will be first element for radio)
       if (userAns[0] === option) {
         return correctAns[0] === option
-          ? "border border-2 border-green-600 text-green-800" //  User selected the correct answer
-          : "border border-2 border-red-600 text-red-800"; //  User selected the wrong answer
+          ? "border border-2 border-green-600 dark:border-green-700 text-green-800" //  User selected the correct answer
+          : "border border-2 border-red-600 dark:border-red-700 text-red-800"; //  User selected the wrong answer
       }
     }
 
@@ -238,7 +235,7 @@ const RadioQuizComponent: React.FC<QuizProps> = ({
   }) => {
     if (!show) return null;
     return (
-      <div className="text-red-500 text-sm flex items-center gap-1 mt-1">
+      <div className="text-red-500  dark:text-red-400 text-sm flex items-center gap-1 mt-1">
         <AlertCircle size={14} />
         <span>{message}</span>
       </div>
@@ -251,10 +248,10 @@ const RadioQuizComponent: React.FC<QuizProps> = ({
       <div className="w-full max-w-3xl">
         <div className="mb-6 w-full">
           {question?.heading && (
-            <h3 className="text-2xl text-gray-800">{question.heading}</h3>
+            <h3 className="text-2xl text-gray-800 dark:text-gray-300">{question.heading}</h3>
           )}
           {question?.paras?.map((para, i) => (
-            <p key={i} className="text-gray-600 mt-2">
+            <p key={i} className="text-gray-600 dark:text-gray-300 mt-2">
               {para}
             </p>
           ))}
@@ -263,7 +260,7 @@ const RadioQuizComponent: React.FC<QuizProps> = ({
           {options?.map((option, index) => (
             <div
               key={index}
-              className={`flex items-center p-2 border border-gray-300 rounded-lg hover:bg-blue-50 hover:border-blue-500 transition-all duration-300 ${getOptionStyle(
+              className={`flex items-center p-2 border border-gray-400  rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:border-blue-500 dark:hover:border-blue-400 transition-all duration-300 ${getOptionStyle(
                 option
               )}`}
             >
@@ -275,11 +272,11 @@ const RadioQuizComponent: React.FC<QuizProps> = ({
                 checked={selectedAnswer === option}
                 onChange={handleOptionChange}
                 disabled={reviewMode}
-                className="h-5 w-5 text-blue-600 border-gray-300 focus:ring-blue-500"
+                className="custom-radio appearance-none w-5 h-5 bg-white dark:bg-slate-700 border-2 border-gray-600 dark:border-gray-400 rounded-full checked:bg-blue-600 checked:border-blue-600 relative"
               />
               <label
                 htmlFor={`option-${index}`}
-                className="ml-3 text-lg text-gray-800"
+                className="ml-3 text-lg text-gray-800 dark:text-gray-200"
               >
                 {option}
               </label>
@@ -292,39 +289,46 @@ const RadioQuizComponent: React.FC<QuizProps> = ({
 
   // Form Creation Mode
   return (
-    <div className="bg-white/80 backdrop-blur-lg p-8 rounded-2xl shadow-xl w-full max-w-3xl border border-gray-200">
-      <div className=" px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-300">
+    <div className="bg-white dark:bg-slate-900 p-8 rounded-lg shadow-lg w-full max-w-3xl border border-gray-200 dark:border-slate-800 transition-colors duration-300">
+      {/* Question Section */}
+      <div className="px-6 py-5 bg-gray-50 dark:bg-slate-800 border-l-4 border-blue-600 rounded-lg mb-6 transition-colors duration-300 shadow-md">
         {/* Heading Input */}
         <div className="mb-4">
-          <label className="block font-semibold text-gray-800 text-lg">
+          <label className="block font-semibold text-blue-700 dark:text-blue-400 text-base mb-2">
             Write a Question
           </label>
           <Input
             type="text"
             value={newQuestion.heading}
             onChange={handleHeadingChange}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-300"
+            className="w-full px-4 py-2 rounded-md focus:ring-blue-500 focus:border-blue-500 dark:focus:border-blue-500 bg-white dark:bg-slate-700 text-gray-800 dark:text-white transition-all duration-300"
             label="Heading"
+            focusedLabelClassName="text-blue-700 dark:text-blue-400"
+            backgroundColor="bg-white dark:bg-slate-700"
+            labelClassName="bg-white dark:bg-transparent"
           />
         </div>
 
         {/* Multiple Paragraphs Input */}
         <div className="mb-6 w-full">
           {newQuestion.paras.map((para, index) => (
-            <div key={index} className="flex items-center gap-2 mb-2">
+            <div key={index} className="flex items-center gap-2 mb-3">
               <Textarea
                 value={para}
                 onChange={(e) => handleParaChange(index, e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-300"
+                className="w-full px-4 py-2 border border-gray-300 dark:border-slate-700 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:focus:border-blue-500 bg-white dark:bg-slate-700 text-gray-800 dark:text-white transition-all duration-300"
                 label="Content"
                 rows={1}
+                focusedLabelClassName="text-blue-700 dark:text-blue-400"
+                textareaClassName="bg-white dark:bg-slate-700 text-gray-800 dark:text-white"
+                labelClassName="bg-white dark:bg-transparent"
               />
               {index > 0 && (
                 <Tooltip title="Remove">
                   <Button
                     variant="outline"
                     onClick={() => removeParagraph(index)}
-                    className="text-red-500 border border-red-500 rounded-full relative"
+                    className="text-red-600 dark:text-red-400 border border-red-400 dark:border-red-500/50 hover:bg-red-50 dark:hover:bg-red-500/20 rounded-md flex-shrink-0 transition-colors duration-300"
                   >
                     <Minus />
                   </Button>
@@ -336,39 +340,43 @@ const RadioQuizComponent: React.FC<QuizProps> = ({
             <Button
               variant="outline"
               onClick={addParagraph}
-              className="text-green-600 border border-green-600 rounded-full flex items-center gap-1 mt-2 relative"
+              className="text-green-600 dark:text-green-400 border border-green-500 dark:border-green-500/50 hover:bg-green-50 dark:hover:bg-green-500/20 rounded-md flex items-center gap-1 mt-2 transition-colors duration-300"
             >
               <Plus />
             </Button>
           </Tooltip>
-        </div>
 
-        <ErrorMessage
-          show={errors.questionContent && showErrors}
-          message="At least one field must be filled"
-        />
+          <ErrorMessage
+            show={errors.questionContent && showErrors}
+            message="At least one field must be filled"
+          />
+        </div>
       </div>
 
       {/* Options Input */}
-      <div className="my-6 w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-300">
-        <label className="block font-semibold text-gray-800 text-lg mb-2">
+      <div className="mb-6 w-full px-6 py-5 bg-gray-50 dark:bg-slate-800 border-l-4 border-amber-400 rounded-lg transition-colors duration-300 shadow-md">
+        <label className="block font-semibold text-amber-600 dark:text-amber-300 text-base mb-3">
           Specify Options
         </label>
         {newOptions.map((option, index) => (
-          <div key={index} className="flex items-center gap-2 mb-2">
-            <Input
-              type="text"
-              value={option}
-              onChange={(e) => handleNewOptionChange(e.target.value, index)}
-              className="flex-1 px-4 py-2 border rounded-lg focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-300"
-              label={`Option ${index + 1}`}
-            />
+          <div key={index} className="flex items-center gap-2 mb-3 w-full">
+            <div className="flex-1 relative w-full">
+              <Input
+                type="text"
+                value={option}
+                onChange={(e) => handleNewOptionChange(e.target.value, index)}
+                className="w-full px-4 py-2 border rounded-lg bg-white dark:bg-slate-700 text-gray-800 dark:text-white focus:ring-amber-200 focus:border-amber-300 transition-all duration-300"
+                label={`Option ${index + 1}`}
+                backgroundColor="bg-white dark:bg-slate-700"
+                focusedLabelClassName="text-amber-400 dark:text-amber-400 bg-white dark:bg-transparent"
+              />
+            </div>
             {index > 0 && (
               <Tooltip title="Remove">
                 <Button
                   variant="outline"
                   onClick={() => removeNewOption(index)}
-                  className="text-red-500 border border-red-500 rounded-full flex-shrink-0"
+                  className="text-red-600 dark:text-red-400 border border-red-400 dark:border-red-500/50 hover:bg-red-50 dark:hover:bg-red-500/20 rounded-md flex-shrink-0 transition-colors duration-300"
                 >
                   <Minus size={20} />
                 </Button>
@@ -380,7 +388,7 @@ const RadioQuizComponent: React.FC<QuizProps> = ({
           <Button
             variant="outline"
             onClick={addNewOption}
-            className="text-green-600 border border-green-600 rounded-full mt-2"
+            className="text-green-600 dark:text-green-400 border border-green-500 dark:border-green-500/50 hover:bg-green-50 dark:hover:bg-green-500/20 rounded-md flex items-center gap-1 mt-2 transition-colors duration-300"
           >
             <Plus size={20} />
           </Button>
@@ -393,30 +401,34 @@ const RadioQuizComponent: React.FC<QuizProps> = ({
       </div>
 
       {/* Correct Answer Selection */}
-      <div className="my-6 w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-300">
-        <label className="block font-semibold text-gray-800 text-lg">
+      <div className="mb-6 w-full px-6 py-5 bg-gray-50 dark:bg-slate-800 border-l-4 border-green-500 rounded-lg transition-colors duration-300 shadow-md">
+        <label className="block font-semibold text-green-700 dark:text-green-400 text-base mb-3">
           Tick the Correct Answers
         </label>
-        {newOptions.map((option, index) => (
-          <div key={index} className="flex items-center mb-3">
-            <Input
-              type="radio"
-              id={`new-correct-${index}`}
-              name="newCorrectAnswer"
-              value={option}
-              onChange={handleNewCorrectAnswerChange}
-              className="h-3 w-5 text-indigo-600 border-gray-300 focus:ring-indigo-500 transition-all"
-              label=""
-            />
-            <label
-              htmlFor={`new-correct-${index}`}
-              className="ml-3 text-gray-800 font-medium"
+        <div className="space-y-2 w-full">
+          {newOptions.map((option, index) => (
+            <div
+              key={index}
+              className="flex items-center p-2 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-md transition-colors w-full"
             >
-              {option}
-            </label>
-          </div>
-        ))}
-
+              <Input
+                type="radio"
+                id={`new-correct-${index}`}
+                name="newCorrectAnswer"
+                value={option}
+                onChange={handleNewCorrectAnswerChange}
+                className="custom-radio appearance-none w-5 h-5 bg-white dark:bg-slate-700 border-2 border-gray-600 dark:border-gray-400 rounded-full checked:bg-green-600 checked:border-green-600 relative"
+                label=""
+              />
+              <label
+                htmlFor={`new-correct-${index}`}
+                className="ml-3 mb-2 text-gray-800 dark:text-slate-200 font-medium cursor-pointer flex-1"
+              >
+                {option}
+              </label>
+            </div>
+          ))}
+        </div>
         <ErrorMessage
           show={errors.correctAns && showErrors}
           message="Correct answer is required"
@@ -424,10 +436,10 @@ const RadioQuizComponent: React.FC<QuizProps> = ({
       </div>
 
       {/* Submit Button */}
-      <div className="flex justify-center">
+      <div className="flex justify-end">
         <Button
           onClick={handleSaveQuestion}
-          className="px-8 py-3 text-sm bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-semibold rounded-lg hover:opacity-90 transition-all shadow-lg"
+          className="px-8 py-3 text-sm bg-blue-600 hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-700 text-white font-medium rounded-md transition-colors duration-300 shadow-md hover:shadow-lg transform hover:-translate-y-0.5 active:translate-y-0"
         >
           Add Question
         </Button>

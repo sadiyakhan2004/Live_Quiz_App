@@ -771,7 +771,7 @@ function Home() {
 
         if (params.type === "screen") {
           // Larger size for screen sharing
-          videoStyle = { width: "1000px", height: "800px" };
+          videoStyle = { width: "1000px", height: "full" };
         } else {
           // Regular camera video size
           videoStyle = { width: "500px", height: "300px" };

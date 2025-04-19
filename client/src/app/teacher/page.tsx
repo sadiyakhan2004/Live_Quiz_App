@@ -25,7 +25,6 @@ import {
   deleteQuestion,
   reorderQuestions,
 } from "@/store/features/questionSlice";
-import { useQuestions, QuestionData } from "@/context/QuestionProvider";
 import QuestionLayout from "@/components/QuestionTypes/QuestionLayout";
 import React, { ReactNode } from "react";
 import { X, Copy, Check } from "lucide-react";
@@ -211,8 +210,8 @@ const SortableQuestion = ({
         <PageThumbnailPreview onClick={() => onQuestionPreview(question)}>
           <div
             {...listeners}
-            className={`bg-white h-full w-full p-8 rounded-3xl shadow-lg border-2 cursor-grab active:cursor-grabbing  
-                  ${isActive ? "ring-4 ring-blue-700" : "border-blue-800"}`}
+            className={`bg-white dark:bg-slate-700 h-full w-full p-8 rounded-3xl shadow-lg border-2 cursor-grab active:cursor-grabbing  
+                  ${isActive ? "ring-4 ring-blue-600" : "border-blue-800"}`}
           >
             <AutoScalingContent>
               <QuestionLayout
@@ -377,7 +376,7 @@ const ViewQuestionsSidebar: React.FC<ViewQuestionsSidebarProps> = ({
       </div>
 
       {/* Footer */}
-      <div className="p-4 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+      <div className="p-3.5 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
         <button
           className="w-full px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200 flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
           disabled={orderedQuestions.length === 0}
@@ -450,9 +449,7 @@ const QuestionPreview = ({
         goToNextSlide();
       } else if (e.key === "ArrowLeft") {
         goToPrevSlide();
-      } else if (e.key === "f" || e.key === "F") {
-        toggleFullscreen();
-      }
+      } 
     };
 
     window.addEventListener("keydown", handleKeyDown);
@@ -487,25 +484,25 @@ const QuestionPreview = ({
   }, [questions]);
 
   return (
-    <div className="w-full h-full flex flex-col bg-gray-50">
-      {/* Improved header */}
-      <div className="bg-white border-b border-gray-200 p-4 flex items-center justify-between shadow-sm">
+    <div className="w-full h-full flex flex-col bg-gray-50 dark:bg-gray-900">
+      {/* Improved header with dark mode */}
+      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-3 flex items-center justify-between shadow-sm">
         <div className="flex items-center gap-3">
           <button
             onClick={onBack}
-            className="p-2 rounded-full hover:bg-gray-100 transition-colors"
+            className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
             title="Exit presentation mode"
           >
-            <ArrowLeft className="w-5 h-5 text-gray-600" />
+            <ArrowLeft className="w-5 h-5 text-gray-600 dark:text-gray-300" />
           </button>
-          <div className="text-sm font-medium text-gray-500">
+          <div className="text-sm font-medium text-gray-500 dark:text-gray-400">
             Question {currentQuestionIndex + 1} of {questions.length}
           </div>
         </div>
-
+  
         <button
           onClick={toggleFullscreen}
-          className="p-2 rounded-full hover:bg-gray-100 transition-colors text-gray-600"
+          className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-gray-600 dark:text-gray-300"
           title={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
         >
           {isFullscreen ? (
@@ -515,12 +512,11 @@ const QuestionPreview = ({
           )}
         </button>
       </div>
-
-      {/* Main content area with improved layout */}
-
-      <div className="flex-1 p-4 md:p-8 flex items-start justify-center h-full ">
-        <div className="  w-full max-w-4xl h-full bg-white rounded-xl shadow-lg border border-gray-200 hover:border-blue-300 transition-colors md:p-8 relative">
-          <div className="p-8">
+  
+      {/* Main content area with dark mode */}
+      <div className="flex-1 p-4 md:p-8 flex items-start justify-center h-full overflow-hidden">
+        <div className="w-full max-w-4xl h-full bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-500 transition-colors md:p-8 relative overflow-y-auto">
+          {/* <div className="p-8 overflow-y-auto h-full"> */}
             <QuestionLayout
               question={currentQuestion.currentQn}
               options={currentQuestion.options}
@@ -529,29 +525,29 @@ const QuestionPreview = ({
               Qn_id={currentQuestion.questionId}
               reviewMode={false}
             />
-          </div>
+          {/* </div> */}
         </div>
       </div>
-
-      {/* Improved navigation arrows */}
+  
+      {/* Improved navigation arrows with dark mode */}
       <div className="fixed left-4 right-4 top-1/2 transform -translate-y-1/2 flex justify-between pointer-events-none">
         <button
           onClick={goToPrevSlide}
           disabled={currentQuestionIndex === 0}
-          className={`p-3 rounded-full bg-white shadow-lg hover:bg-gray-100 transition-all pointer-events-auto ${
+          className={`p-3 rounded-full bg-white dark:bg-gray-800 shadow-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-all pointer-events-auto ${
             currentQuestionIndex === 0
               ? "opacity-0 cursor-not-allowed"
               : "opacity-80 hover:opacity-100 hover:shadow-xl"
           }`}
           aria-label="Previous question"
         >
-          <ChevronLeft className="w-6 h-6 text-gray-700" />
+          <ChevronLeft className="w-6 h-6 text-gray-700 dark:text-gray-300" />
         </button>
       </div>
-
-      {/* Simplified slide indicators */}
-      <div className="bg-white border-t border-gray-200  flex justify-center py-2 px-1">
-        <div className="flex gap-2 items-center max-w-full overflow-x-auto px-4 py-1">
+  
+      {/* Simplified slide indicators with dark mode */}
+      <div className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 flex justify-center  mt-2py-2 px-1">
+        <div className="flex gap-2 items-center max-w-full overflow-x-auto px-4 py-2">
           {questions.map((q, index) => (
             <button
               key={q.questionId}
@@ -559,7 +555,7 @@ const QuestionPreview = ({
               className={`flex items-center justify-center mb-6 rounded-full transition-all ${
                 index === currentQuestionIndex
                   ? "bg-blue-500 text-white"
-                  : "bg-gray-200 text-gray-600 hover:bg-gray-300"
+                  : "bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-500"
               }`}
               style={{
                 width: index === currentQuestionIndex ? "32px" : "24px",
@@ -667,7 +663,7 @@ const QuestionCreatorPage = () => {
       "Create Questions": [
         "Multiple Choice",
         "Short Answer",
-        "True/False",
+        "Single Select",
         "Dropdown",
         "Drag & Drop",
         "Fill In The Blank",
@@ -753,9 +749,9 @@ const QuestionCreatorPage = () => {
             <ShortAnswerComponent />
           </QuestionTypeWrapper>
         );
-      case "True/False":
+      case "Single Select":
         return (
-          <QuestionTypeWrapper title="Create True/False Question">
+          <QuestionTypeWrapper title="Create Single Select Question">
             <RadioQuizComponent />
           </QuestionTypeWrapper>
         );

@@ -129,8 +129,12 @@ export const updateResponse = (
   const existingIndex = responses.findIndex(
     (res) => res.questionId === questionId
   );
+  
+  // Also track the existing index in localResponses
+  const existingLocalIndex = localResponses.findIndex(
+    (res) => res.questionId === questionId
+  );
 
- 
   const question = questions.find((q) => q.questionId === questionId);
   
   if (!question) {
@@ -152,6 +156,7 @@ export const updateResponse = (
     correctAnsArray.every((ans) => userAnsArray.includes(ans)) &&
     userAnsArray.every((ans) => correctAnsArray.includes(ans));
 
+  // Update in the responses array
   if (existingIndex !== -1) {
     // Update existing response
     responses[existingIndex].userAns = userAns;
@@ -159,6 +164,16 @@ export const updateResponse = (
   } else {
     // Add new response
     responses.push({ questionId, userAns, isCorrect });
+  }
+
+  // Also update in the localResponses array
+  if (existingLocalIndex !== -1) {
+    // Update existing response in localResponses
+    localResponses[existingLocalIndex].userAns = userAns;
+    localResponses[existingLocalIndex].isCorrect = isCorrect;
+  } else {
+    // Add new response to localResponses
+    localResponses.push({ questionId, userAns, isCorrect });
   }
 };
 
@@ -225,7 +240,6 @@ export const submitUserResponses = async (
       throw new Error("Failed to submit responses");
     }
 
-    localResponses =  [...responses];
     responses=[];
     return await res.json();
   } catch (error) {

@@ -180,16 +180,7 @@ const LiveQuizModal: React.FC<LiveQuizModalProps> = ({ isOpen, onClose, quiz }) 
               </div>
             </div>
             
-            <div className="flex items-center">
-              <input 
-                type="checkbox" 
-                id="show-answers" 
-                checked={showAnswers}
-                onChange={(e) => setShowAnswers(e.target.checked)}
-                className="mr-2" 
-              />
-              <label htmlFor="show-answers" className="text-gray-600">Show answers after each question</label>
-            </div>
+            
           </div>
           
           {/* Quiz duration information */}

@@ -265,7 +265,7 @@ const DropDownComponent: React.FC<QuizProps> = ({
         value: option,
       }));
       return (
-        <div className="text-lg font-semibold text-gray-600 flex-cols items-center space-x-3 w-full">
+        <div className="text-lg font-semibold text-gray-600  dark:text-gray-100 flex-cols items-center space-x-3 w-full">
           <span>{parts[0]}</span>
           <DropDown
             items={dropdownItems} // Pass the converted options array
@@ -285,7 +285,7 @@ const DropDownComponent: React.FC<QuizProps> = ({
         </div>
       );
     }
-    return <div>{questionTemplate}</div>;
+    return <div >{questionTemplate}</div>;
   };
 
   // Error message component
@@ -298,7 +298,7 @@ const DropDownComponent: React.FC<QuizProps> = ({
   }) => {
     if (!show) return null;
     return (
-      <div className="text-red-500 text-sm flex items-center gap-1 mt-1">
+      <div className="text-red-500 dark:text-red-400 text-sm flex items-center gap-1 mt-1">
         <AlertCircle size={14} />
         <span>{message}</span>
       </div>
@@ -308,60 +308,67 @@ const DropDownComponent: React.FC<QuizProps> = ({
   if (isQuizMode) {
     // Quiz Mode
     return (
-      <div className="flex justify-center items-center">
+      <div className="flex justify-center items-center w-full bg-white dark:bg-slate-900 p-8 rounded-lg shadow-lg max-w-3xl border border-gray-200 dark:border-slate-800 transition-colors duration-300">
         <div className="mb-6 w-full">
           {question?.heading && (
-            <h3 className="text-2xl text-gray-800">{renderWithDropdown(question.heading)}</h3>
+            <h3 className="text-2xl text-gray-800 dark:text-gray-100">{renderWithDropdown(question.heading)}</h3>
           )}
           {question?.paras?.map((para, i) => (
-            <p key={i} className="text-gray-600 mt-2">
+            <p key={i} className="text-gray-600 dark:text-gray-300 mt-2">
               {renderWithDropdown(para)}
             </p>
           ))}
         </div>
       </div>
     );
+
   }
 
   // Form Creation Mode
   return (
-    <div className="bg-white/80 backdrop-blur-lg p-8 rounded-2xl shadow-xl w-full max-w-3xl border border-gray-200">
-      <p className="mb-4">
+    <div className="bg-white dark:bg-slate-900 p-8 rounded-lg shadow-lg w-full max-w-3xl border border-gray-200 dark:border-slate-800 transition-colors duration-300">
+      <p className="mb-4 text-amber-500 dark:text-amber-400 font-medium italic">
         {" "}
         Use "{`{dropdown}`}" to mark the dropdown in the question.
       </p>
-      <div className=" px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-300">
+      <div className="px-6 py-5 bg-gray-50 dark:bg-slate-800 border-l-4 border-blue-600 rounded-lg mb-6 transition-colors duration-300 shadow-md">
         {/* Heading Input */}
-        <div className="mb-4">
-          <label className="block font-semibold text-gray-800 text-lg">
+        <div className="mb-6">
+          <label className="block font-semibold text-blue-700 dark:text-blue-400 text-base mb-2">
             Write a Question
           </label>
           <Input
             type="text"
             value={newQuestion.heading}
             onChange={handleHeadingChange}
-            className="w-full px-3 py-2 border rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+            className="w-full px-4 py-2 rounded-md focus:ring-blue-500 focus:border-blue-500 dark:focus:border-blue-500 bg-white dark:bg-slate-700 text-gray-800 dark:text-white transition-all duration-300"
             label="Heading"
+            focusedLabelClassName="text-blue-700 dark:text-blue-400"
+            backgroundColor="bg-white dark:bg-slate-700"
+            labelClassName="bg-white dark:bg-transparent"
           />
         </div>
 
         {/* Paragraphs Input */}
-        <div className="mb-6">
+        <div className="mb-5 w-full">
           {newQuestion.paras.map((para, index) => (
-            <div key={index} className="flex items-center gap-2 mb-2">
+            <div key={index} className="flex items-center gap-2 mb-3">
               <Textarea
                 value={para}
                 onChange={(e) => handleParaChange(index, e.target.value)}
-                className="flex-1 w-full px-6 py-2 border rounded-lg focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-300"
+                className="flex-1 w-full px-4 py-2 border border-gray-300 dark:border-slate-700 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:focus:border-blue-500 bg-white dark:bg-slate-700 text-gray-800 dark:text-white transition-all duration-300"
                 label="Content"
                 rows={1}
+                focusedLabelClassName="text-blue-700 dark:text-blue-400"
+                textareaClassName="bg-white dark:bg-slate-700 text-gray-800 dark:text-white"
+                labelClassName="bg-white dark:bg-transparent"
               />
               {index > 0 && (
                 <Tooltip title="Remove">
                   <Button
                     variant="outline"
                     onClick={() => removeParagraph(index)}
-                    className="text-red-500 border border-red-500 rounded-full flex-shrink-0"
+                    className="text-red-600 dark:text-red-400 border border-red-400 dark:border-red-500/50 hover:bg-red-50 dark:hover:bg-red-500/20 rounded-md flex-shrink-0 transition-colors duration-300"
                   >
                     <Minus />
                   </Button>
@@ -373,7 +380,7 @@ const DropDownComponent: React.FC<QuizProps> = ({
             <Button
               variant="outline"
               onClick={addParagraph}
-              className="text-green-600 border border-green-600 rounded-full flex items-center gap-1 mt-2 flex-shrink-0"
+              className="text-green-600 dark:text-green-400 border border-green-500 dark:border-green-500/50 hover:bg-green-50 dark:hover:bg-green-500/20 rounded-md flex items-center gap-1 mt-2 transition-colors duration-300"
             >
               <Plus />
             </Button>
@@ -391,25 +398,29 @@ const DropDownComponent: React.FC<QuizProps> = ({
       </div>
 
       {/* Dropdown Options Input */}
-      <div className="my-6 w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-300">
-        <label className="block font-semibold text-gray-800 text-lg mb-2">
+      <div className="mb-6 w-full px-6 py-5 bg-gray-50 dark:bg-slate-800 border-l-4 border-amber-400 rounded-lg transition-colors duration-300 shadow-md">
+        <label className="block font-semibold text-amber-600 dark:text-amber-300 text-base mb-3">
           Specify Options
         </label>
         {dropdownOptions.map((option, index) => (
-          <div key={index} className="mb-2 flex items-center space-x-2">
-            <Input
-              type="text"
-              value={option}
-              onChange={(e) => handleOptionChange(index, e.target.value)}
-              className="flex-1 px-4 py-2 border rounded-lg focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-300"
-              label={`Option ${index + 1}`}
-            />
+          <div key={index} className="flex items-center gap-2 mb-3">
+            <div className="flex-1 relative">
+              <Input
+                type="text"
+                value={option}
+                onChange={(e) => handleOptionChange(index, e.target.value)}
+                className="flex-1 px-4 py-2 border rounded-lg bg-white dark:bg-slate-700 text-gray-800 dark:text-white focus:ring-amber-200 focus:border-amber-300 transition-all duration-300"
+                label={`Option ${index + 1}`}
+                backgroundColor="bg-white dark:bg-slate-700"
+                focusedLabelClassName="text-amber-400 dark:text-amber-400 bg-white dark:bg-transparent"
+              />
+            </div>
             {index > 0 && (
               <Tooltip title="Remove">
                 <Button
                   variant="outline"
                   onClick={() => removeOption(index)}
-                  className="text-red-500 border border-red-500 rounded-full flex-shrink-0"
+                  className="text-red-600 dark:text-red-400 border border-red-400 dark:border-red-500/50 hover:bg-red-50 dark:hover:bg-red-500/20 rounded-md flex-shrink-0 transition-colors duration-300"
                 >
                   <Minus size={20} />
                 </Button>
@@ -422,7 +433,7 @@ const DropDownComponent: React.FC<QuizProps> = ({
           <Button
             variant="outline"
             onClick={() => setDropdownOptions([...dropdownOptions, ""])}
-            className="text-green-600 border border-green-600 rounded-full mt-2 flex-shrink-0"
+            className="text-green-600 dark:text-green-400 border border-green-500 dark:border-green-500/50 hover:bg-green-50 dark:hover:bg-green-500/20 rounded-md flex items-center gap-1 mt-2 transition-colors duration-300"
           >
             <Plus size={20} />
           </Button>
@@ -435,13 +446,18 @@ const DropDownComponent: React.FC<QuizProps> = ({
       </div>
 
       {/* Correct Answer Input */}
-      <div className="my-6 w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-300">
+      <div className="mb-8 w-full px-6 py-5 bg-gray-50 dark:bg-slate-800 border-l-4 border-green-500 rounded-lg transition-colors duration-300 shadow-md">
+        <label className="block font-semibold text-green-700 dark:text-green-400 text-base mb-3">
+          Specify the Correct Answers
+        </label>
         <Input
-          label="Specify the Correct Answers"
           type="text"
           value={correctAnswer}
           onChange={handleCorrectAnswerChange}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+          className="w-full px-4 py-2 border rounded-md focus:ring-green-500 focus:border-green-500 dark:focus:border-green-500 bg-white dark:bg-slate-700 text-gray-800 dark:text-white transition-all duration-300"
+          label="Correct Answer"
+          focusedLabelClassName="text-green-700 dark:text-green-400 bg-white dark:bg-transparent"
+          backgroundColor="bg-white dark:bg-slate-700"
         />
 
         <ErrorMessage
@@ -455,10 +471,10 @@ const DropDownComponent: React.FC<QuizProps> = ({
       </div>
 
       {/* Submit Button */}
-      <div className="flex justify-center">
+      <div className="flex justify-end">
         <Button
           onClick={handleSaveQuestion}
-          className="px-8 py-3 text-sm bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-semibold rounded-lg hover:opacity-90 transition-all shadow-lg flex-shrink-0"
+          className="px-8 py-3 text-sm bg-blue-600 hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-700 text-white font-medium rounded-md transition-colors duration-300 shadow-md hover:shadow-lg transform hover:-translate-y-0.5 active:translate-y-0"
         >
           Add Question
         </Button>

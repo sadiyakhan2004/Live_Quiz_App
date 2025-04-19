@@ -1,4 +1,6 @@
+
 import React from 'react';
+import Input from '../ui/Input';
 
 interface QuizNameModalProps {
   isOpen: boolean;
@@ -18,47 +20,55 @@ const QuizNameModal: React.FC<QuizNameModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4 overflow-hidden">
-        <div className="p-5 border-b border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-800">Name Your Quiz</h3>
-        </div>
-        
-        <div className="p-5">
-          <label htmlFor="quiz-name" className="block text-sm font-medium text-gray-700 mb-2">
-            Enter a name for your quiz:
-          </label>
-          <input
-            type="text"
-            id="quiz-name"
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            placeholder="e.g., Math Quiz Spring 2025"
-            value={quizName}
-            onChange={(e) => setQuizName(e.target.value)}
-            autoFocus
-          />
+    <div className="fixed inset-0 bg-slate-800/80 backdrop-blur-sm flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg shadow-2xl w-full max-w-md mx-4 overflow-hidden border border-slate-100">
+        <div className="relative">
+          <div className="bg-gradient-to-r from-indigo-500 to-purple-600 h-2 w-full absolute top-0 left-0"></div>
           
-          {quizName.trim() === '' && (
-            <p className="mt-2 text-sm text-red-600">
-              Please enter a name for your quiz
-            </p>
-          )}
-        </div>
-        
-        <div className="p-4 bg-gray-50 border-t border-gray-200 flex justify-end space-x-3">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={onSubmit}
-            disabled={!quizName.trim()}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Submit
-          </button>
+          <div className="p-6 pt-8">
+            <h3 className="text-2xl font-semibold text-slate-800 mb-4">Name Your Quiz</h3>
+            
+            <div className="mt-5 mb-6">
+              <Input
+                type="text"
+                id="quiz-name"
+                className="w-full px-4 py-2 border border-slate-300 rounded-md focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 bg-white text-slate-800 transition-all duration-300 shadow-sm"
+                label="Quiz Name"
+                focusedLabelClassName="text-indigo-600 bg-white"
+                backgroundColor="bg-white"
+                value={quizName}
+                onChange={(e:any) => setQuizName(e.target.value)}
+                
+              />
+              
+              {quizName.trim() === '' && (
+                <p className="mt-2 text-sm text-red-400 flex items-center">
+                  <svg className="w-4 h-4 mr-1.5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                  </svg>
+                  Please enter a name for your quiz
+                </p>
+              )}
+            </div>
+            
+            <div className="flex justify-end space-x-3 mt-8 pt-4 border-t border-slate-200">
+              <button
+                onClick={onClose}
+                className="px-4 py-2 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-slate-300"
+                type="button"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={onSubmit}
+                disabled={!quizName.trim()}
+                className="px-5 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm"
+                type="button"
+              >
+                Create Quiz
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>

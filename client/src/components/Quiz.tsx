@@ -33,7 +33,13 @@ interface QuizProps {
   participants?: any[];
 }
 
-const Quiz: React.FC<QuizProps> = ({ isAdmin, aboutUser, quizDesc, quizQuestions, participants }) => {
+const Quiz: React.FC<QuizProps> = ({
+  isAdmin,
+  aboutUser,
+  quizDesc,
+  quizQuestions,
+  participants,
+}) => {
   const socket = useSocket();
   const [quiz, setQuiz] = useState<QuizData | null>(null);
   const [questions, setQuestions] = useState<any>([]);
@@ -360,7 +366,6 @@ const Quiz: React.FC<QuizProps> = ({ isAdmin, aboutUser, quizDesc, quizQuestions
     setShowStatistics(true);
   };
 
-
   // Listen for socket events
   useEffect(() => {
     if (!socket) return;
@@ -464,7 +469,6 @@ const Quiz: React.FC<QuizProps> = ({ isAdmin, aboutUser, quizDesc, quizQuestions
 
     socket.on("quiz-completed", () => handleQuizEnd());
 
-
     return () => {
       // Clean up event listeners
       socket.off("room-joined");
@@ -476,8 +480,6 @@ const Quiz: React.FC<QuizProps> = ({ isAdmin, aboutUser, quizDesc, quizQuestions
       socket.off("time-out");
       socket.off("quiz-end");
       socket.off("quiz-completed", () => handleQuizEnd());
-     
-     
     };
   }, [socket, questions, userId, quiz, currentQuestionSubmitted]);
 
@@ -721,48 +723,49 @@ const Quiz: React.FC<QuizProps> = ({ isAdmin, aboutUser, quizDesc, quizQuestions
                 </div>
               </div>
             ) : (
-              <div
-                className={`bg-white rounded-xl shadow-2xl p-5 h-full relative overflow-y-auto`}
-              >
+              <div className="bg-white rounded-xl shadow-2xl p-5 h-full relative overflow-y-auto">
                 {/* Alarm overlay for last 5 seconds when not submitted */}
                 {timeLeft <= 5 && !currentQuestionSubmitted && (
                   <div className="absolute inset-0 bg-red-500 opacity-10 pointer-events-none animate-pulse"></div>
                 )}
 
-                {/* Compact Answer Options */}
-                {currentQuestion && (
-                  <div className="mb-8">
-                    <QuestionLayout
-                      question={currentQuestion.currentQn}
-                      options={currentQuestion.options || []}
-                      correctAns={currentQuestion.correctAns}
-                      type={currentQuestion.type || "radio"}
-                      Qn_id={currentQuestion.questionId}
-                    />
-                  </div>
-                )}
+                {/* Main content container with question and button */}
+                <div className="flex flex-col h-full">
+                  {/* Question and Answer Options */}
+                  {currentQuestion && (
+                    <div className="flex-grow">
+                      <QuestionLayout
+                        question={currentQuestion.currentQn}
+                        options={currentQuestion.options || []}
+                        correctAns={currentQuestion.correctAns}
+                        type={currentQuestion.type || "radio"}
+                        Qn_id={currentQuestion.questionId}
+                      />
+                    </div>
+                  )}
 
-                {/* Submit Button */}
-                <div className="flex justify-center">
-                  <Button
-                    onClick={handleSubmitButtonClick}
-                    disabled={currentQuestionSubmitted || isSubmitting}
-                    className={`px-6 py-2 rounded-lg text-white font-medium transition-all duration-200 ${
-                      currentQuestionSubmitted
-                        ? "bg-slate-400"
+                  {/* Submit Button - Positioned in the corner but appears connected */}
+                  <div className="flex justify-end mt-4">
+                    <Button
+                      onClick={handleSubmitButtonClick}
+                      disabled={currentQuestionSubmitted || isSubmitting}
+                      className={`px-6 py-2 rounded-lg text-white font-medium transition-all duration-200 ${
+                        currentQuestionSubmitted
+                          ? "bg-slate-400"
+                          : timeLeft <= 5
+                          ? "bg-gradient-to-r from-red-600 to-red-500 animate-pulse shadow-lg transform hover:scale-105"
+                          : "bg-gradient-to-r from-blue-800 to-blue-600 hover:from-blue-700 hover:to-blue-500 shadow-lg"
+                      }`}
+                    >
+                      {currentQuestionSubmitted
+                        ? "Submitted"
+                        : isSubmitting
+                        ? "Submitting..."
                         : timeLeft <= 5
-                        ? "bg-gradient-to-r from-red-600 to-red-500 animate-pulse shadow-lg transform hover:scale-105"
-                        : "bg-gradient-to-r from-blue-800 to-blue-600 hover:from-blue-700 hover:to-blue-500 shadow-lg"
-                    }`}
-                  >
-                    {currentQuestionSubmitted
-                      ? "Submitted"
-                      : isSubmitting
-                      ? "Submitting..."
-                      : timeLeft <= 5
-                      ? "Submit Now!"
-                      : "Submit"}
-                  </Button>
+                        ? "Submit Now!"
+                        : "Submit"}
+                    </Button>
+                  </div>
                 </div>
               </div>
             )}

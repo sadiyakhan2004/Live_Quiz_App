@@ -214,10 +214,10 @@ connections.on('connection', async socket => {
                         });
                         break;
 
-                    case 'ended':
-                        console.log(`Sending ended state`);
-                        socket.emit('quiz-end');
-                        break;
+                    // case 'ended':
+                    //     console.log(`Sending ended state`);
+                    //     socket.emit('quiz-end');
+                    //     break;
 
                     default:
                         console.log(`Sending completed state`);
@@ -434,7 +434,8 @@ connections.on('connection', async socket => {
     })
     socket.on("quiz-completion", ({ roomName }) => {
         console.log(`Host triggered quiz completion for room ${roomName}`);
-
+        const quizState = roomQuizStates[roomName];
+        quizState.phase = "complete";
         // Mark this quiz as completed (moved from endQuiz to here)
         completedQuizzes[roomName] = {
             quizId: roomQuizStates[roomName]?.quizId || roomName,
@@ -443,29 +444,6 @@ connections.on('connection', async socket => {
 
         // Broadcast completion to all clients in the room
         broadcastToRoom(roomName, "quiz-completed");
-
-        // Cancel the auto-cleanup timeout if it exists
-        if (roomQuizStates[roomName] && roomQuizStates[roomName].autoCleanupTimeout) {
-            clearTimeout(roomQuizStates[roomName].autoCleanupTimeout);
-            console.log(`Cancelled auto-cleanup for room ${roomName}, performing immediate cleanup instead`);
-        }
-
-        // Perform immediate cleanup after a short delay
-        setTimeout(() => {
-            // Clean up quiz state
-            if (roomQuizStates[roomName]) {
-                delete roomQuizStates[roomName];
-                console.log(`Cleaned up quiz state for room ${roomName} after host completion`);
-            }
-        }, 5000); // 5 seconds
-
-        // Schedule cleanup for completed quiz record (retain for reference for 1 hour)
-        setTimeout(() => {
-            if (completedQuizzes[roomName]) {
-                delete completedQuizzes[roomName];
-                console.log(`Cleaned up completed quiz record for room ${roomName}`);
-            }
-        }, 3600000); // 1 hour
     });
 
 
@@ -484,22 +462,6 @@ connections.on('connection', async socket => {
         quizState.phase = "statistics"; // Set phase to statistics for showing results
         quizState.hasEnded = true; // Add a flag to track quiz end state
 
-        // Schedule automatic cleanup after 1 hour if host doesn't trigger completion
-        quizState.autoCleanupTimeout = setTimeout(() => {
-            console.log(`Auto-cleanup triggered for room ${roomName} after 1 hour`);
-
-            // Clean up quiz state
-            if (roomQuizStates[roomName]) {
-                delete roomQuizStates[roomName];
-                console.log(`Auto-cleaned quiz state for room ${roomName}`);
-            }
-
-            // Clean up completed quiz record if it exists
-            if (completedQuizzes[roomName]) {
-                delete completedQuizzes[roomName];
-                console.log(`Auto-cleaned completed quiz record for room ${roomName}`);
-            }
-        }, 3600000); // 1 hour
 
         // Broadcast end to all clients
         broadcastToRoom(roomName, "quiz-end");
@@ -546,44 +508,56 @@ connections.on('connection', async socket => {
             }
         }
     }
+socket.on('disconnect', () => {
+    if (peers[socket.id]) {
+        console.log('peer disconnected');
+        consumers = removeItems(consumers, socket.id, 'consumer');
+        producers = removeItems(producers, socket.id, 'producer');
+        transports = removeItems(transports, socket.id, 'transport');
 
+        const { roomName, peerDetails } = peers[socket.id];
 
-    socket.on('disconnect', () => {
-        if (peers[socket.id]) {
-            console.log('peer disconnected');
-            consumers = removeItems(consumers, socket.id, 'consumer');
-            producers = removeItems(producers, socket.id, 'producer');
-            transports = removeItems(transports, socket.id, 'transport');
+        // Remove participant from room
+        removeParticipant(socket.id);
 
-            const { roomName, peerDetails } = peers[socket.id];
+        delete peers[socket.id];
 
-            // Remove participant from room
-            removeParticipant(socket.id);
+        // Update the room's peer list
+        if (rooms[roomName]) {
+            rooms[roomName].peers = rooms[roomName].peers.filter(id => id !== socket.id);
 
-            delete peers[socket.id];
+            console.log(`Peer disconnected from room ${roomName}. Remaining peers: ${rooms[roomName].peers.length}`);
 
-            // Update the room's peer list
-            if (rooms[roomName]) {
-                rooms[roomName].peers = rooms[roomName].peers.filter(id => id !== socket.id);
-
-                console.log(`Peer disconnected from room ${roomName}. Remaining peers: ${rooms[roomName].peers.length}`);
-
-                // Check if room is now empty
-                if (rooms[roomName].peers.length === 0 && roomQuizStates[roomName]) {
-                    console.log(`Last user left room ${roomName}, ending quiz immediately`);
-
-                    // Clear intervals and end quiz
-                    if (roomQuizStates[roomName].currentTimeInterval) {
-                        clearInterval(roomQuizStates[roomName].currentTimeInterval);
-                        roomQuizStates[roomName].currentTimeInterval = null;
-                    }
+            // Check if room is now empty
+            if (rooms[roomName].peers.length === 0 && roomQuizStates[roomName]) {
+                console.log(`Last user left room ${roomName}, cleaning up quiz state immediately`);
+                
+                // Clear any running intervals
+                if (roomQuizStates[roomName].currentTimeInterval) {
+                    clearInterval(roomQuizStates[roomName].currentTimeInterval);
+                    roomQuizStates[roomName].currentTimeInterval = null;
                 }
+
+                // Store quiz completion if it was running
+                if (roomQuizStates[roomName].hasStarted) {
+                    // Schedule cleanup for completed quiz record after some time
+                    setTimeout(() => {
+                        if (completedQuizzes[roomName]) {
+                            delete completedQuizzes[roomName];
+                            console.log(`Cleaned up completed quiz record for room ${roomName}`);
+                        }
+                    }, 3600000); // 1 hour
+                }
+
+                // Remove the quiz state immediately
+                delete roomQuizStates[roomName];
+                console.log(`Removed quiz state for empty room ${roomName}`);
             }
         } else {
             console.log(`Socket ${socket.id} disconnected but was not registered in peers.`);
         }
-    });
-
+    }
+});
     // Handle camera state change
     socket.on('cameraStateChanged', (data) => {
 
@@ -1193,10 +1167,10 @@ connections.on('connection', async socket => {
                         });
                         break;
 
-                    case 'ended':
-                        console.log(`Sending ended state`);
-                        broadcastToRoom(roomName, 'quiz-end');
-                        break;
+                    // case 'ended':
+                    //     console.log(`Sending ended state`);
+                    //     broadcastToRoom(roomName, 'quiz-end');
+                    //     break;
 
                     default:
                         console.log(`Sending completed state`);

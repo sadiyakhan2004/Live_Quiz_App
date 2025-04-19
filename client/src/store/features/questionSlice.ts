@@ -51,6 +51,8 @@ export const questionSlice = createSlice({
           Array.isArray(action.payload.correctAns)
             ? action.payload.correctAns
             : "", // Ensure correctAns is valid
+
+            // Log the new question
       };
     
       state.questions.push(newQuestion);
