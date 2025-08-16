@@ -1,25 +1,33 @@
-# 🎯 Live Quiz Application
+# 🎯 Live Quiz & Video Conferencing App
 
-A real-time interactive quiz platform built with **Next.js, TypeScript, Node.js, Express.js, Socket.io, Mediasoup, and MongoDB**.  
-This application allows hosts to conduct live quizzes with features like timers, audio/video streaming, and dynamic question management.
+A real-time platform for conducting **live quizzes** and **video conferencing**.  
+Built with **Next.js, TypeScript, Node.js, Express.js, Socket.io, Mediasoup, Redux, and MongoDB**, this application combines the functionalities of a video meeting tool and an interactive quiz system.
 
 ---
+
 ## 🚀 Features
-- ✅ Real-time quiz with live results  
-- ✅ Audio/Video streaming using **Mediasoup**  
-- ✅ WebSocket communication with **Socket.io**  
-- ✅ Question creation and ordering using **Redux**  
-- ✅ Timer-based quiz flow  
-- ✅ MongoDB integration for storing quiz data and results  
-- ✅ User-friendly and responsive UI with **Tailwind CSS**  
+
+### 📹 Video Conferencing
+- Real-time **Audio/Video streaming** using Mediasoup  
+- **Chat system** during meetings  
+- **Screen sharing**  
+- **Join via meeting link**  
+
+### 📝 Live Quiz Mode
+- All meeting features +  
+- **Quiz creation and management** (using Redux)  
+- **Timer-based quiz flow**  
+- **Live results & participant responses**  
+- **MongoDB integration** for quiz data & results  
 
 ---
 
 ## 🛠️ Tech Stack
 - **Frontend:** Next.js, TypeScript, Redux, Tailwind CSS  
 - **Backend:** Node.js, Express.js, Socket.io, Mediasoup  
-- **Database:** MongoDB
+- **Database:** MongoDB  
 
+---
 ## ▶️ Getting Started
 
 ### Frontend (Client)
