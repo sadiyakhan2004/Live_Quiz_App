@@ -257,19 +257,19 @@ const Statistics: React.FC<StatisticsProps> = ({
 
   return (
     <div className="h-full flex flex-col">
-      <div className="bg-white p-6 rounded-lg shadow-md flex-grow overflow-y-auto">
+      <div className="bg-white  p-6 rounded-lg shadow-md flex-grow overflow-y-auto">
         <h2 className="text-2xl font-bold text-indigo-800 mb-4 flex items-center">
           <span className="mr-2">{quizName}</span>
         </h2>
 
         {/* Tab Navigation - Only show for host */}
         {isHost && (
-          <div className="flex border-b border-gray-200 mb-6">
+          <div className="flex border-b border-gray-200  mb-6">
             <button
               className={`py-2 px-4 font-medium text-sm focus:outline-none transition-all ${
                 activeTab === "overview"
                   ? "text-indigo-600 border-b-2 border-indigo-600"
-                  : "text-gray-500 hover:text-gray-700"
+                  : "text-gray-500  hover:text-gray-700 "
               }`}
               onClick={() => setActiveTab("overview")}
             >
@@ -278,8 +278,8 @@ const Statistics: React.FC<StatisticsProps> = ({
             <button
               className={`py-2 px-4 font-medium text-sm focus:outline-none transition-all ${
                 activeTab === "ranking"
-                  ? "text-indigo-600 border-b-2 border-indigo-600"
-                  : "text-gray-500 hover:text-gray-700"
+                  ? "text-indigo-600  border-b-2 border-indigo-600"
+                  : "text-gray-500  hover:text-gray-700 "
               }`}
               onClick={() => setActiveTab("ranking")}
             >
@@ -290,7 +290,7 @@ const Statistics: React.FC<StatisticsProps> = ({
 
         {loading ? (
           <div className="flex justify-center items-center h-40">
-            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500 "></div>
           </div>
         ) : (
           <>

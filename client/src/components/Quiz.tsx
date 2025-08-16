@@ -726,7 +726,7 @@ const Quiz: React.FC<QuizProps> = ({
               <div className="bg-white rounded-xl shadow-2xl p-5 h-full relative overflow-y-auto">
                 {/* Alarm overlay for last 5 seconds when not submitted */}
                 {timeLeft <= 5 && !currentQuestionSubmitted && (
-                  <div className="absolute inset-0 bg-red-500 opacity-10 pointer-events-none animate-pulse"></div>
+                  <div className="absolute inset-0 bg-red-500  opacity-10 pointer-events-none animate-pulse"></div>
                 )}
 
                 {/* Main content container with question and button */}
@@ -753,8 +753,8 @@ const Quiz: React.FC<QuizProps> = ({
                         currentQuestionSubmitted
                           ? "bg-slate-400"
                           : timeLeft <= 5
-                          ? "bg-gradient-to-r from-red-600 to-red-500 animate-pulse shadow-lg transform hover:scale-105"
-                          : "bg-gradient-to-r from-blue-800 to-blue-600 hover:from-blue-700 hover:to-blue-500 shadow-lg"
+                          ? "bg-gradient-to-r from-red-600 to-red-500  animate-pulse shadow-lg transform hover:scale-105"
+                          : "bg-gradient-to-r from-blue-800 to-blue-600  hover:from-blue-700 hover:to-blue-500 shadow-lg"
                       }`}
                     >
                       {currentQuestionSubmitted
