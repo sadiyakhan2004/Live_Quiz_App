@@ -25,6 +25,7 @@ This application allows hosts to conduct live quizzes with features like timers,
 ### Frontend (Client)
 **cd client**  
 **npm run dev**  
+- Create a `.env` file in the `client` folder with your MongoDB URI:
 
 👉 Open [http://localhost:3000/teacher](http://localhost:3000/teacher) in your browser.  
 
